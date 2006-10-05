@@ -1,4 +1,6 @@
+import cgi
 from urllib import quote
+
 
 def application_uri(environ):
     '''Return the application's base URI (no PATH_INFO or QUERY_STRING)'''
@@ -25,3 +27,10 @@ def request_uri(environ, include_query=True):
     if include_query and 'QUERY_STRING' in environ:
         url = '?'.join([url, environ['QUERY_STRING']])
     return url
+
+def extract(environ, empty=False, err=False):
+    '''Extracts strings in form data.'''
+    qdict = cgi.parse(environ['wsgi.input'], environ, empty, err)
+    for key, value in qdict.iteritems():
+        if len(value) == 1: qdict[key] = value[0]
+    return qdict

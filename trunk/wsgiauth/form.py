@@ -23,7 +23,7 @@ to put ``paste.auth.cookie`` in your application stack.
 serving on...
 
 """
-from paste.request import construct_url, parse_formvars
+from util import application_uri, extract
 
 TEMPLATE ="""\
 <html>
@@ -95,11 +95,9 @@ class AuthFormHandler:
 
     def __call__(self, environ, start_response):
         username = environ.get('REMOTE_USER','')
-        if username:
-            return self.application(environ, start_response)
-
+        if username: return self.application(environ, start_response)
         if 'POST' == environ['REQUEST_METHOD']:
-            formvars = parse_formvars(environ, include_get_vars=False)
+            formvars = extract(environ)
             username = formvars.get('username')
             password = formvars.get('password')
             if username and password:
@@ -109,12 +107,16 @@ class AuthFormHandler:
                     environ['REQUEST_METHOD'] = 'GET'
                     environ['CONTENT_LENGTH'] = ''
                     environ['CONTENT_TYPE'] = ''
-                    del environ['paste.parsed_formvars']
                     return self.application(environ, start_response)
-
-        content = self.template % construct_url(environ)
-        start_response("200 OK",(('Content-Type', 'text/html'),
-                                 ('Content-Length', len(content))))
+        content = self.template % application_uri(environ)
+        start_response('200 OK', [('Content-Type', 'text/html'),
+            ('Content-Length', str(len(content)))])
         return [content]
 
-__all__ = ['AuthFormHandler']
+def formauth(authfunc, template=None):
+    '''Decorator for simple cache.'''
+    def decorator(application):
+        return AuthFormHandler(application, authfunc, template)
+    return decorator    
+
+__all__ = ['AuthFormHandler', 'formauth']
