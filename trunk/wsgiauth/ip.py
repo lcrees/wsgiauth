@@ -23,23 +23,24 @@ class IPAuth(object):
 
     def __init__(self, app, authfunc, **kw):
         self.app, self.authfunc = app, authfunc 
-        self.handler = kw.gethandler('handler', self.authresponse)
+        self.handler = kw.get('handler', self.authresponse)
 
     def authresponse(self, environ, start_response):
-        start_response('403 Forbidden', ('content-type', 'text/plain'))
+        start_response('403 Forbidden', [('content-type', 'text/plain')])
         return ['This server could not verify that you are authorized to\r\n'
             'access the resource you requested from your current location.\r\n']                                     
         
     def __call__(self, environ, start_response):
         ipaddr = environ.get('REMOTE_ADDR')
-        if not authfunc(environ, ipaddr): return self.handler            
+        if not self.authfunc(environ, ipaddr):
+            return self.handler(environ, start_response)            
         return self.app(environ, start_response)
         
                 
-def ipauth(authfunc):
+def ipauth(authfunc, **kw):
     '''Decorator for IP address-based authentication.'''
     def decorator(application):
-        return IPAuth(application, realm, authfunc)
+        return IPAuth(application, authfunc, **kw)
     return decorator
 
 __all__ = ['IPAuth', 'ipauth']
