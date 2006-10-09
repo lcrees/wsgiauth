@@ -41,7 +41,7 @@ class BasicAuth(object):
         return self.build_authentication
 
 
-class WsgiBasicAuth(object):
+class Basic(object):
 
     '''HTTP/1.0 ``Basic`` authentication middleware
 
@@ -91,4 +91,4 @@ def basic(realm, authfunc, **kw):
     return decorator
 
 
-__all__ = ['WsgiBasicAuth', 'basic']
+__all__ = ['Basic', 'basic']
