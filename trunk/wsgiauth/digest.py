@@ -14,11 +14,11 @@ module has been tested with several common browsers "out-in-the-wild".
 
 >>> from paste.wsgilib import dump_environ
 >>> from paste.httpserver import serve
->>> # from paste.auth.digest import digest_password, AuthDigestHandler
+>>> # from paste.auth.digest import digest_password, Digest
 >>> realm = 'Test Realm'
 >>> def authfunc(environ, realm, username):
 ...     return digest_password(realm, username, username)
->>> serve(AuthDigestHandler(dump_environ, realm, authfunc))
+>>> serve(Digest(dump_environ, realm, authfunc))
 serving on...
 
 This code has not been audited by a security expert, please use with
@@ -36,16 +36,17 @@ def digest_password(realm, username, password):
     """ construct the appropriate hashcode needed for HTTP digest """
     return md5.md5('%s:%s:%s' % (username, realm, password)).hexdigest()
 
-class AuthDigestAuthenticator(object):
-    """ implementation of RFC 2617 - HTTP Digest Authentication """
-    def __init__(self, realm, authfunc, use401=True, errhandler=None):
-        self.nonce = {} # list to prevent replay attacks
-        self.authfunc = authfunc
-        self.realm = realm
-        self.use401 = use401
-        self.errorhandler = errhandler
 
-    def build_authentication(self, stale = ''):
+class DigestAuth(object):
+    
+    '''implementation of RFC 2617 - HTTP Digest Authentication '''
+    
+    def __init__(self, realm, authfunc, **kw):
+        self.authfunc, self.realm = authfunc, realm
+        self.errorhandler = kw.get('errhandler', None)
+        self.nonce = dict # list to prevent replay attacks
+
+    def authresponse(self, stale = ''):
         """ builds the authentication error """
         def coroutine(environ, start_response):
             nonce  = md5.md5("%s:%s" % (time.time(), random.random())).hexdigest()
@@ -57,7 +58,7 @@ class AuthDigestAuthenticator(object):
             head = ', '.join(['%s="%s"' % (k,v) for (k,v) in parts.items()])
             start_response('401 Unauthorized', [("content-type","text/plain"),
                 ("WWW-Authenticate", 'Digest %s' % head)])
-            if self.use401:
+            if self.errorhandler is None:
                 return ['This server could not verify that you are authorized to\r\n'
                 'access the document you requested.  Either you supplied the\r\n'
                 'wrong credentials (e.g., bad password), or your browser\r\n'
@@ -69,7 +70,7 @@ class AuthDigestAuthenticator(object):
     def compute(self, ha1, username, response, method,
                       path, nonce, nc, cnonce, qop):
         """ computes the authentication, raises error if unsuccessful """
-        if not ha1: return self.build_authentication()
+        if not ha1: return self.authresponse()
         ha2 = md5.md5('%s:%s' % (method, path)).hexdigest()
         if qop:
             chk = '%s:%s:%s:%s:%s:%s' % (ha1, nonce, nc, cnonce, qop, ha2)
@@ -77,11 +78,11 @@ class AuthDigestAuthenticator(object):
             chk = '%s:%s:%s' % (ha1, nonce, ha2)
         if response != md5.md5(chk).hexdigest():
             if nonce in self.nonce: del self.nonce[nonce]
-            return self.build_authentication()
+            return self.authresponse()
         pnc = self.nonce.get(nonce, '00000000')
         if nc <= pnc:
             if nonce in self.nonce: del self.nonce[nonce]
-            return self.build_authentication(stale=True)
+            return self.authresponse(stale=True)
         self.nonce[nonce] = nc
         return username
 
@@ -92,9 +93,9 @@ class AuthDigestAuthenticator(object):
         method = environ['REQUEST_METHOD']
         fullpath = ''.join([environ['SCRIPT_NAME'], environ['PATH_INFO']])
         authorization = environ.get('HTTP_AUTHORIZATION', None)
-        if authorization is None: return self.build_authentication()
+        if authorization is None: return self.authresponse()
         (authmeth, auth) = authorization.split(" ", 1)
-        if 'digest' != authmeth.lower(): return self.build_authentication()
+        if 'digest' != authmeth.lower(): return self.authresponse()
         amap = {}
         for itm in auth.split(", "):
             (k, v) = [s.strip() for s in itm.split("=", 1)]
@@ -102,27 +103,27 @@ class AuthDigestAuthenticator(object):
         try:
             username = amap['username']
             authpath = amap['uri']
-            nonce    = amap['nonce']
-            realm    = amap['realm']
+            nonce = amap['nonce']
+            realm = amap['realm']
             response = amap['response']
             assert authpath.split("?", 1)[0] in fullpath
             assert realm == self.realm
-            qop      = amap.get('qop', '')
-            cnonce   = amap.get('cnonce', '')
-            nc       = amap.get('nc', '00000000')
+            qop = amap.get('qop', '')
+            cnonce = amap.get('cnonce', '')
+            nc = amap.get('nc', '00000000')
             if qop:
                 assert 'auth' == qop
                 assert nonce and nc
         except:
-            return self.build_authentication()
+            return self.authresponse()
         ha1 = self.authfunc(environ, realm, username)
         return self.compute(ha1, username, response, method, authpath,
                             nonce, nc, cnonce, qop)
 
     
-class AuthDigestHandler(object):
-    """
-    middleware for HTTP Digest authentication (RFC 2617)
+class Digest(object):
+    
+    """middleware for HTTP Digest authentication (RFC 2617)
 
     This component follows the procedure below:
 
@@ -168,8 +169,9 @@ class AuthDigestHandler(object):
             that the hashcode is stored in a database, not the user's
             actual password (since you only need the hashcode).
     """
+    
     def __init__(self, application, realm, authfunc):
-        self.authenticate = AuthDigestAuthenticator(realm, authfunc)
+        self.authenticate = DigestAuth(realm, authfunc)
         self.application = application
 
     def __call__(self, environ, start_response):
@@ -186,7 +188,7 @@ class AuthDigestHandler(object):
 
 def digest(realm, authfunc):
     def decorator(application):
-        return AuthDigestHandler(application, realm, authfunc)
+        return Digest(application, realm, authfunc)
     return decorator
 
-__all__ = ['digest_password', 'AuthDigestHandler' ]
+__all__ = ['digest_password', 'Digest' ]
