@@ -87,7 +87,7 @@ class Basic(object):
 def basic(realm, authfunc, **kw):
     '''Decorator for basic authentication.'''
     def decorator(application):
-        return WsgiBasicAuth(application, realm, authfunc, **kw)
+        return Basic(application, realm, authfunc, **kw)
     return decorator
 
 
