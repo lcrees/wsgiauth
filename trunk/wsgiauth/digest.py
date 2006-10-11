@@ -2,7 +2,7 @@
 # This module is part of the Python Paste Project and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 # This code was written with funding by http://prometheusresearch.com
-"""
+'''
 Digest HTTP/1.1 Authentication
 
 This module implements ``Digest`` authentication as described by
@@ -28,12 +28,12 @@ support Authentication-Info header.  It also uses md5, and an option
 to use sha would be a good thing.
 
 .. [1] http://www.faqs.org/rfcs/rfc2617.html
-"""
+'''
 
 import md5, time, random, urllib2
 
 def digest_password(realm, username, password):
-    """ construct the appropriate hashcode needed for HTTP digest """
+    ''' construct the appropriate hashcode needed for HTTP digest '''
     return md5.md5('%s:%s:%s' % (username, realm, password)).hexdigest()
 
 
@@ -47,17 +47,16 @@ class DigestAuth(object):
         self.nonce = dict # list to prevent replay attacks
 
     def authresponse(self, stale = ''):
-        """ builds the authentication error """
+        ''' builds the authentication error '''
         def coroutine(environ, start_response):
-            nonce  = md5.md5("%s:%s" % (time.time(), random.random())).hexdigest()
-            opaque = md5.md5("%s:%s" % (time.time(), random.random())).hexdigest()
+            nonce  = md5.md5('%s:%s' % (time.time(), random.random())).hexdigest()
+            opaque = md5.md5('%s:%s' % (time.time(), random.random())).hexdigest()
             self.nonce[nonce] = None
-            parts = {'realm':self.realm, 'qop':'auth',
-                      'nonce':nonce, 'opaque':opaque}
+            parts = {'realm':self.realm, 'qop':'auth', 'nonce':nonce, 'opaque':opaque}
             if stale: parts['stale'] = 'true'
             head = ', '.join(['%s="%s"' % (k,v) for (k,v) in parts.items()])
-            start_response('401 Unauthorized', [("content-type","text/plain"),
-                ("WWW-Authenticate", 'Digest %s' % head)])
+            start_response('401 Unauthorized', [('content-type','text/plain'),
+                ('WWW-Authenticate', 'Digest %s' % head)])
             if self.errorhandler is None:
                 return ['This server could not verify that you are authorized to\r\n'
                 'access the document you requested.  Either you supplied the\r\n'
@@ -69,7 +68,7 @@ class DigestAuth(object):
 
     def compute(self, ha1, username, response, method,
                       path, nonce, nc, cnonce, qop):
-        """ computes the authentication, raises error if unsuccessful """
+        ''' computes the authentication, raises error if unsuccessful '''
         if not ha1: return self.authresponse()
         ha2 = md5.md5('%s:%s' % (method, path)).hexdigest()
         if qop:
@@ -87,18 +86,18 @@ class DigestAuth(object):
         return username
 
     def __call__(self, environ):
-        """ This function takes a WSGI environment and authenticates
+        ''' This function takes a WSGI environment and authenticates
             the request returning authenticated user or error.
-        """
+        '''
         method = environ['REQUEST_METHOD']
         fullpath = ''.join([environ['SCRIPT_NAME'], environ['PATH_INFO']])
         authorization = environ.get('HTTP_AUTHORIZATION', None)
         if authorization is None: return self.authresponse()
-        (authmeth, auth) = authorization.split(" ", 1)
+        (authmeth, auth) = authorization.split(' ', 1)
         if 'digest' != authmeth.lower(): return self.authresponse()
         amap = {}
-        for itm in auth.split(", "):
-            (k, v) = [s.strip() for s in itm.split("=", 1)]
+        for itm in auth.split(', '):
+            (k, v) = [s.strip() for s in itm.split('=', 1)]
             amap[k] = v.replace('"', '')
         try:
             username = amap['username']
@@ -106,7 +105,7 @@ class DigestAuth(object):
             nonce = amap['nonce']
             realm = amap['realm']
             response = amap['response']
-            assert authpath.split("?", 1)[0] in fullpath
+            assert authpath.split('?', 1)[0] in fullpath
             assert realm == self.realm
             qop = amap.get('qop', '')
             cnonce = amap.get('cnonce', '')
@@ -123,7 +122,7 @@ class DigestAuth(object):
     
 class Digest(object):
     
-    """middleware for HTTP Digest authentication (RFC 2617)
+    '''middleware for HTTP Digest authentication (RFC 2617)
 
     This component follows the procedure below:
 
@@ -168,7 +167,7 @@ class Digest(object):
             which can help construct the hashcode; it is recommended
             that the hashcode is stored in a database, not the user's
             actual password (since you only need the hashcode).
-    """
+    '''
     
     def __init__(self, application, realm, authfunc):
         self.authenticate = DigestAuth(realm, authfunc)
@@ -191,4 +190,4 @@ def digest(realm, authfunc):
         return Digest(application, realm, authfunc)
     return decorator
 
-__all__ = ['digest_password', 'Digest' ]
+__all__ = ['digest_password', 'Digest', 'digest']

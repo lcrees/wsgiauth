@@ -23,11 +23,12 @@ to put ``paste.auth.cookie`` in your application stack.
 serving on...
 
 """
-from util import application_uri, extract
+from wsgiref.util import application_uri
+from util import extract
 
 TEMPLATE ="""\
 <html>
-  <head><title>Please Login!</title></head>
+  <head><title>Please Login</title></head>
   <body>
     <h1>Please Login</h1>
     <form action="%s" method="post">
