@@ -63,7 +63,7 @@ class Cookie(object):
 
     def _response(self, environ, start_response):
         start_response('200 OK', [('Content-type', 'text/html')])
-        return [self.template % request_uri(environ, 1)]
+        return [self.template % request_uri(environ, 0)]
 
     def cookiegen(self, environ):
         method, name = environ['REQUEST_METHOD'], self.name
