@@ -5,83 +5,79 @@
 
 '''Basic HTTP/1.0 Authentication
 
-This module implements ``Basic`` authentication as described in
-HTTP/1.0 specification [1]_ .  Do not use this module unless you
-are using SSL or need to work with very out-dated clients, instead
-use ``digest`` authentication.
+This module implements basic HTTP authentication as described in
+HTTP/1.0 specification:
 
-.. [1] http://www.w3.org/Protocols/HTTP/1.0/draft-ietf-http-spec.html#BasicAA
+http://www.w3.org/Protocols/HTTP/1.0/draft-ietf-http-spec.html#BasicAA
+
+Do not use this module unless you are using SSL or need to work with very
+out-dated clients, instead use HTTP digest authentication. 
 '''
 
 
 class BasicAuth(object):
 
-    '''implements ``Basic`` authentication details'''
+    '''Performs basic HTTP authentication.'''
+
+    _rsp_msg = '''This server could not verify that you are authorized to\r\n
+        access the document you requested.  Either you supplied the\r\n
+        wrong credentials (e.g., bad password), or your browser\r\n
+        does not understand how to supply the credentials required.\r\n'''    
     
     def __init__(self, realm, authfunc, **kw):
         self.realm, self.authfunc = realm, authfunc
-        self.errorhandler = kw.get('errhandler', self.authresponse)
+        self.authresponse = kw.get('errhandler', self._authresponse)
+        self.message = kw.get('message', self._rsp_msg)
 
-    def authresponse(self, environ, start_response):
-        start_response('401 Unauthorized', [("content-type","text/plain"),
-            ("WWW-Authenticate", 'Basic realm="%s"' % self.realm)])
-        return ['This server could not verify that you are authorized to\r\n'
-            'access the document you requested.  Either you supplied the\r\n'
-            'wrong credentials (e.g., bad password), or your browser\r\n'
-            'does not understand how to supply the credentials required.\r\n']
+    def _authresponse(self, environ, start_response):
+        ''''''
+        start_response('401 Unauthorized', [('content-type', 'text/plain'),
+            ('WWW-Authenticate', 'Basic realm="%s"' % self.realm)])
+        return [self.message]
 
     def __call__(self, environ):
-        authorization = environ.get('HTTP_AUTHORIZATION')
-        if authorization is None: return self.errorhandler
-        authmeth, auth = authorization.split(' ', 1)
-        if 'basic' != authmeth.lower(): return self.errorhandler
-        auth = auth.strip().decode('base64')
-        username, password = auth.split(':', 1)
-        if self.authfunc(environ, username, password): return username
-        return self.build_authentication
+        try:
+            authorization = environ['HTTP_AUTHORIZATION']
+            authmeth, auth = authorization.split(' ', 1)
+            if 'basic' != authmeth.lower(): return self.authresponse
+            auth = auth.strip().decode('base64')
+            username, password = auth.split(':', 1)
+            if self.authfunc(environ, username, password): return username
+        except KeyError:
+            return self.authresponse
+        return self.authresponse
 
 
 class Basic(object):
 
-    '''HTTP/1.0 ``Basic`` authentication middleware
-
-    Parameters:
-
-        ``application``
-
-            The application object is called only upon successful
-            authentication, and can assume ``environ['REMOTE_USER']``
-            is set.  If the ``REMOTE_USER`` is already set, this
-            middleware is simply pass-through.
-
-        ``realm``
-
-            This is a identifier for the authority that is requesting
-            authorization.  It is shown to the user and should be unique
-            within the domain it is being used.
-
-        ``authfunc``
-
-            This is a mandatory user-defined function which takes a
-            ``environ``, ``username`` and ``password`` for its first
-            three arguments.  It should return ``True`` if the user is
-            authenticated.
-    '''
+    '''HTTP basic authentication middleware.'''    
     
     def __init__(self, application, realm, authfunc):
+        '''@param application The application object is called only upon
+            successful authentication, and can assume environ['REMOTE_USER']
+            is set. If REMOTE_USER is already set, this middleware is simply
+            pass-through.
+
+        @param realm This is a identifier for the authority that is requesting
+            authorization. It is shown to the user and should be unique within
+            the domain it is being used.
+
+        @param authfunc This is a mandatory user-defined function which takes a
+            environ, username and password for its first three arguments.  It
+            should return True if the user is authenticated.
+        '''
         self.application = application
         self.authenticate = BasicAuth(realm, authfunc)
 
-    def __call__(self, environ, start_response):
-        username = environ.get('REMOTE_USER', None)
-        if username is None:
-            result = self.authenticate(environ)
-            if isinstance(result, str):
-                environ['AUTH_TYPE'] = 'basic'
-                environ['REMOTE_USER'] = result
-            else:
-                return result(environ, start_response)
-        return self.application(environ, start_response)
+    def __call__(self, env, start_response):
+        '''WSGI callable.'''
+        try:
+            username = env['REMOTE_USER']
+        except KeyError:
+            result = self.authenticate(env)
+            if not isinstance(result, str): return result(env, start_response)
+            env['AUTH_TYPE'], env['REMOTE_USER'] = 'basic', result    
+        return self.application(env, start_response)
 
 
 def basic(realm, authfunc, **kw):
