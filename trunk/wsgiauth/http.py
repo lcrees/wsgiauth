@@ -1,7 +1,35 @@
+#! /usr/bin/env python
 # (c) 2005 Clark C. Evans
+#
 # This module is part of the Python Paste Project and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 # This code was written with funding by http://prometheusresearch.com
+#
+# Copyright (c) 2006 L. C. Rees.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1.  Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 2.  Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 3.  Neither the name of the Portable Site Information Project nor the names
+# of its contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
 '''HTTP Authentication
 
@@ -37,10 +65,10 @@ def digest_password(realm, username, password):
 
 class _HTTPAuth(object):
 
-    _rsp_msg = '''This server could not verify that you are authorized to\r\n
-        access the document you requested.  Either you supplied the\r\n
-        wrong credentials (e.g., bad password), or your browser\r\n
-        does not understand how to supply the credentials required.\r\n''' 
+    _rsp_msg = '''This server could not verify that you are authorized to
+        access the document you requested.  Either you supplied the
+        wrong credentials (e.g., bad password), or your browser
+        does not understand how to supply the credentials required.''' 
 
     def __init__(self, realm, authfunc, **kw):
         self.realm, self.authfunc = realm, authfunc
@@ -87,7 +115,7 @@ class Digest(_HTTPAuth):
         self.digest = kw.get('digest', md5)
         self.nonce = dict() # list to prevent replay attacks
 
-    def authresponse(self, stale = ''):
+    def _authresponse(self, stale = ''):
         ''' builds the authentication error '''
         def coroutine(environ, start_response):
             nonce = self.digest.new('%s:%s' % (time.time(), random.random())).hexdigest()
@@ -177,7 +205,7 @@ class HTTPAuth(object):
            AUTH_TYPE is listed as 'digest' or 'basic'.
     '''    
     
-    def __init__(self, application, realm, authfunc, scheme):
+    def __init__(self, application, realm, authfunc, scheme, **kw):
         '''@param application The application object is called only upon
             successful authentication, and can assume environ['REMOTE_USER']
             is set. If REMOTE_USER is already set, this middleware is simply
@@ -205,7 +233,7 @@ class HTTPAuth(object):
         '''
         self.application, self.scheme = application, scheme
         if scheme == 'digest':
-            self.authenticate = Digest(realm, authfunc)
+            self.authenticate = Digest(realm, authfunc, **kw)
         elif scheme == 'basic':
             self.authenticate = Basic(realm, authfunc)
 
@@ -220,16 +248,16 @@ class HTTPAuth(object):
         return self.application(env, start_response)
 
 
-def basic(realm, authfunc):
-    '''Decorator for basic authentication.'''
+def basic(realm, authfunc, **kw):
+    '''Decorator for HTTP basic middleware.'''
     def decorator(application):
-        return HTTPAuth(application, realm, authfunc, 'basic')
+        return HTTPAuth(application, realm, authfunc, 'basic', **kw)
     return decorator
 
-def digest(realm, authfunc):
+def digest(realm, authfunc, **kw):
     '''Decorator for HTTP digest middleware.'''
     def decorator(application):
-        return HTTPAuth(application, realm, authfunc, 'digest')
+        return HTTPAuth(application, realm, authfunc, 'digest', **kw)
     return decorator
 
 __all__ = ['HTTPAuth', 'basic', 'digest', 'digest_password']
