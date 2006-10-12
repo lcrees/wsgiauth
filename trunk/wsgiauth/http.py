@@ -94,7 +94,7 @@ class _Basic(_Scheme):
         '''This function takes a WSGI environment and authenticates
         the request returning authenticated user or error.
         '''
-        authorization = environ.get('HTTP_AUTHORIZATION', None)
+        authorization = environ.get('HTTP_AUTHORIZATION')
         if authorization is None: return self.authresponse   
         authmeth, auth = authorization.split(' ', 1)
         if authmeth.lower() != 'basic': return self.authresponse
@@ -150,7 +150,7 @@ class _Digest(_Scheme):
         '''
         method = environ['REQUEST_METHOD']
         fullpath = ''.join([environ['SCRIPT_NAME'], environ['PATH_INFO']])
-        authorization = environ.get('HTTP_AUTHORIZATION', None)
+        authorization = environ.get('HTTP_AUTHORIZATION')
         if authorization is None: return self.authresponse()
         authmeth, auth = authorization.split(' ', 1)
         if 'digest' != authmeth.lower(): return self.authresponse()
@@ -211,7 +211,7 @@ class HTTPAuth(object):
 
     def __call__(self, env, start_response):
         '''WSGI callable.'''
-        user = env.get('REMOTE_USER', None)
+        user = env.get('REMOTE_USER')
         if user is None:
             result = self.authenticate(env)
             if not isinstance(result, str): return result(env, start_response)
