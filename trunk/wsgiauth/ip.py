@@ -15,7 +15,7 @@ def authfunc(environ, ipaddr):
     return environ['REMOTE_USER'] == ip_user_map[ipaddr]
 
 
-class IPAuth(object):
+class IP(object):
 
     '''On each request, `REMOTE_ADDR` is authenticated and access is allowed
     based on that.
@@ -23,9 +23,9 @@ class IPAuth(object):
 
     def __init__(self, app, authfunc, **kw):
         self.app, self.authfunc = app, authfunc 
-        self.handler = kw.get('handler', self.authresponse)
+        self.authresponse = kw.get('handler', self._authresponse)
 
-    def authresponse(self, environ, start_response):
+    def _authresponse(self, environ, start_response):
         start_response('403 Forbidden', [('content-type', 'text/plain')])
         return ['This server could not verify that you are authorized to\r\n'
             'access the resource you requested from your current location.\r\n']                                     
@@ -33,11 +33,11 @@ class IPAuth(object):
     def __call__(self, environ, start_response):
         ipaddr = environ.get('REMOTE_ADDR')
         if not self.authfunc(environ, ipaddr):
-            return self.handler(environ, start_response)            
+            return self.authresponse(environ, start_response)            
         return self.app(environ, start_response)
         
                 
-def ipauth(authfunc, **kw):
+def ip(authfunc, **kw):
     '''Decorator for IP address-based authentication.'''
     def decorator(application):
         return IPAuth(application, authfunc, **kw)
