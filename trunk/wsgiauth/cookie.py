@@ -38,6 +38,8 @@ def secretgen():
 def gettime(value):
     return datetime(*time.strptime(value)[0:7])
 
+_csecret = secretgen()
+
 
 class Cookie(object):
 
@@ -46,7 +48,7 @@ class Cookie(object):
     def __init__(self, application, authfunc, **kw):
         self.application = application
         self.authfunc = authfunc
-        self._secret = kw.get('secret', csecret)
+        self._secret = kw.get('secret', _csecret)
         self.authenticate = kw.get('auth', self._authenticate)
         self.response = kw.get('response', self._response)
         self.age = kw.get('age', 7200)
@@ -57,16 +59,22 @@ class Cookie(object):
         self.comment = kw.get('comment')
         self.path = kw.get('path')
         self.timeout = kw.get('timeout', 3600)
+        self.everypass = kw.get('everypass', False)
         self._fullurl = None
 
     def __call__(self, environ, start_response):
-        if not self.authenticate(environ):
+        cookies = environ.get('HTTP_COOKIE')        
+        if cookies is None:
+            return self.response(environ, start_response)
+        cookie = SimpleCookie(cookie).get(self.name)
+        if cookie is None:
             if environ['REQUEST_METHOD'] == 'POST':
                 userdata = extract(environ)
                 if self.authfunc(userdata):
                     environ['wsgiauth.userdata'] = userdata
                     environ['AUTH_TYPE'] = 'cookie'
                     environ['REQUEST_METHOD'] = 'GET'
+                    environ['REMOTE_USER'] = userdata['username']
                     environ['CONTENT_LENGTH'] = ''
                     environ['CONTENT_TYPE'] = ''                    
                     def cookie_response(status, headers, exc_info=None):                        
@@ -75,29 +83,25 @@ class Cookie(object):
                     return self.application(environ, cookie_response)
                 return self.response(environ, start_response)
             return self.response(environ, start_response)
+        if self.everypass and not self.authenticate(cookie, environ):
+            return self.response(environ, start_response)                
         return self.application(environ, start_response)     
                 
-    def _authenticate(self, env):
-        try:
-            cookies = SimpleCookie(env['HTTP_COOKIE'])
-            cookie, secret = cookies[self.name], self._secret
-            value = base64.urlsafe_b64decode(cookie.value)
-            confirm = self.tracker[value]
-            name = value[:_cryptsize]
-            date = gettime(value[_cryptsize:])
-            if date + self.timeout < datetime.now().replace(microsecond=0):            
-                uagent, password = env['HTTP_USER_AGENT'], confirm['password']
-                path, method = confirm['path'], confirm['method']
-                uname, raddr = confirm['username'], env['REMOTE_ADDR']
-                cname = Cookie.compute(uname, raddr, path, method, uagent, password) 
-                if cname != name:
-                    cookie[name]['expires'] = -365*24*60*60
-                    cookie[name]['max-age'] = 0
-                    return False
-                return True
-            return False
-        except KeyError:
-            return False
+    def _authenticate(self, cookie, env):
+        secret, confirm = self._secret, self.tracker[value]
+        value = base64.urlsafe_b64decode(cookie)
+        name, date = value[:_cryptsize], gettime(value[_cryptsize:])
+        if date + self.timeout < datetime.now().replace(microsecond=0):            
+            uagent, password = env['HTTP_USER_AGENT'], confirm['password']
+            path, method = confirm['path'], confirm['method']
+            uname, raddr = confirm['username'], env['REMOTE_ADDR']
+            cname = Cookie.compute(uname, raddr, path, method, uagent, password) 
+            if cname != name:
+                cookie[name]['expires'] = -365*24*60*60
+                cookie[name]['max-age'] = 0
+                return False
+            return True
+        return False
 
     def _response(self, environ, start_response):
         start_response('200 OK', [('Content-type', 'text/html')])
