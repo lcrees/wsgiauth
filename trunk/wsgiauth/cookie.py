@@ -61,22 +61,16 @@ class Cookie(object):
         self.path, self.comment = kw.get('path'), kw.get('comment')
         self.authlevel = kw.get('authlevel', 1)
         self.timeout = kw.get('timeout', 3600)
-        self.everypass = kw.get('everypass', False)
         self._fullurl = None
 
     def __call__(self, environ, start_response):
-        cookies = environ.get('HTTP_COOKIE')        
-        if cookies is None:
-            return self.response(environ, start_response)
-        cookie = SimpleCookie(cookie).get(self.name)
-        if cookie is None:
+        if not self.authenticate(environ):
             if environ['REQUEST_METHOD'] == 'POST':
                 userdata = extract(environ)
                 if self.authfunc(userdata):
                     environ['wsgiauth.userdata'] = userdata
                     environ['AUTH_TYPE'] = 'cookie'
                     environ['REQUEST_METHOD'] = 'GET'
-                    environ['REMOTE_USER'] = userdata['username']
                     environ['CONTENT_LENGTH'] = ''
                     environ['CONTENT_TYPE'] = ''                    
                     def cookie_response(status, headers, exc_info=None):                        
@@ -85,11 +79,8 @@ class Cookie(object):
                     return self.application(environ, cookie_response)
                 return self.response(environ, start_response)
             return self.response(environ, start_response)
-        if self.everypass and not self.authenticate(cookie, environ):
-            return self.response(environ, start_response)                
         return self.application(environ, start_response)     
                 
-<<<<<<< .mine
     def _authenticate(self, env):
         try:
             cookies = SimpleCookie(env['HTTP_COOKIE'])
@@ -115,23 +106,6 @@ class Cookie(object):
             return False
         except KeyError:
             return False
-=======
-    def _authenticate(self, cookie, env):
-        secret, confirm = self._secret, self.tracker[value]
-        value = base64.urlsafe_b64decode(cookie)
-        name, date = value[:_cryptsize], gettime(value[_cryptsize:])
-        if date + self.timeout < datetime.now().replace(microsecond=0):            
-            uagent, password = env['HTTP_USER_AGENT'], confirm['password']
-            path, method = confirm['path'], confirm['method']
-            uname, raddr = confirm['username'], env['REMOTE_ADDR']
-            cname = Cookie.compute(uname, raddr, path, method, uagent, password) 
-            if cname != name:
-                cookie[name]['expires'] = -365*24*60*60
-                cookie[name]['max-age'] = 0
-                return False
-            return True
-        return False
->>>>>>> .r24
 
     def _response(self, environ, start_response):
         start_response('200 OK', [('Content-type', 'text/html')])
