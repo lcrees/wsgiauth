@@ -51,13 +51,15 @@ class Cookie(object):
         self._secret = kw.get('secret', _csecret)
         self.authenticate = kw.get('auth', self._authenticate)
         self.response = kw.get('response', self._response)
+        self.cookiegen = kw.get('cookiegen', self._cookiegen)
+        self.compute = kw.get('compute', self._compute)
         self.age = kw.get('age', 7200)
         self.template = kw.get('template', TEMPLATE)
         self.name = kw.get('cookiename', self.cname)
         self.tracker = kw.get('tracker', {})
         self.domain = kw.get('domain')
-        self.comment = kw.get('comment')
-        self.path = kw.get('path')
+        self.path, self.comment = kw.get('path'), kw.get('comment')
+        self.authlevel = kw.get('authlevel', 1)
         self.timeout = kw.get('timeout', 3600)
         self.everypass = kw.get('everypass', False)
         self._fullurl = None
@@ -87,6 +89,33 @@ class Cookie(object):
             return self.response(environ, start_response)                
         return self.application(environ, start_response)     
                 
+<<<<<<< .mine
+    def _authenticate(self, env):
+        try:
+            cookies = SimpleCookie(env['HTTP_COOKIE'])
+            cookie = cookies[self.name]            
+            confirm = self.tracker[cookie.value]
+            if self.authlevel == 4: return True
+            value = base64.urlsafe_b64decode(cookie.value)            
+            cvalue = value[:_cryptsize]
+            date = gettime(value[_cryptsize:].decode('hex'))
+            if date > datetime.now().replace(microsecond=0):
+                username = confirm['username']                            
+                password = confirm['password']                
+                path = confirm['path']
+                method = confirm['method']
+                useragent = env['HTTP_USER_AGENT']                
+                ipaddr = env['REMOTE_ADDR']
+                nvalue = self.compute(username, ipaddr, path, method, useragent, password) 
+                if nvalue != cvalue:
+                    cookie[cvalue]['expires'] = -365*24*60*60
+                    cookie[cvalue]['max-age'] = 0
+                    return False
+                return True
+            return False
+        except KeyError:
+            return False
+=======
     def _authenticate(self, cookie, env):
         secret, confirm = self._secret, self.tracker[value]
         value = base64.urlsafe_b64decode(cookie)
@@ -102,37 +131,50 @@ class Cookie(object):
                 return False
             return True
         return False
+>>>>>>> .r24
 
     def _response(self, environ, start_response):
         start_response('200 OK', [('Content-type', 'text/html')])
         return [self.template % request_uri(environ, 0)]
 
-    def cookiegen(self, environ):
-        method, name = environ['REQUEST_METHOD'], self.name
-        path = ''.join([environ['SCRIPT_NAME'], environ['PATH_INFO']])
-        raddr, uagent = environ['REMOTE_ADDR'], environ['HTTP_USER_AGENT']
-        userdata, secret = environ['wsgiauth.userdata'], self._secret
-        username, password = userdata['username'], userdata['password']
-        crypt = Cookie.compute(uname, raddr, path, method, uageng, password)
-        time = datetime.fromtimestamp(time.time() + self.timeout).ctime().encode('hex')
-        cname = base64.urlsafe_b64encode(''.join([crypt, time]))
+    def _cookiegen(self, environ):
+        userdata = environ['wsgiauth.userdata']
+        username = userdata['username']
+        password = userdata['password']
+        path = environ['SCRIPT_NAME'] + environ['PATH_INFO']
+        method = environ['REQUEST_METHOD']
+        useragent = environ['HTTP_USER_AGENT']
+        ipaddr = environ['REMOTE_ADDR']
+        hash = self.compute(username, ipaddr, path, method, useragent, password)
+        timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
+        value = base64.urlsafe_b64encode(hash + timeout.encode('hex'))
         confirm = {'username':username, 'path':path, 'password':password, 'method':method}
-        self.tracker[cname], cookie = confirm, SimpleCookie()
-        cookie[name], cookie[name]['path'] = cname, self.path or path
-        cookie[name]['max-age'] = self.age
-        if self.domain is not None: cookie[name]['domain'] = self.age
-        if self.comment is not None: cookie[name]['comment'] = self.comment
-        if environ['wsgi.url_scheme'] == 'https': cookie[name]['secure'] = ''
-        return cookie[name].OutputString()
+        self.tracker[value] = confirm 
+        cookie = SimpleCookie()
+        cookie[self.name] = value
+        cookie[self.name]['path'] = self.path or path
+        cookie[self.name]['max-age'] = self.age
+        if self.domain is not None:
+            cookie[self.name]['domain'] = self.age
+        if self.comment is not None:
+            cookie[self.name]['comment'] = self.comment
+        if environ['wsgi.url_scheme'] == 'https':
+            cookie[self.name]['secure'] = ''
+        return cookie[self.name].OutputString()
 
-    @classmethod
-    def compute(secret, uname, raddr, path, method, uageng, password):
-        value = secret.join([username, raddr, path,
-            sha.new(password).hexdigest(), method, uagent])
-        return hmac.new(secret, value, sha).hexdigest()
+    def _compute(self, uname, raddr, path, method, uagent, password):
+        passhash = sha.new(password).hexdigest()
+        if self.authlevel == 3 or 4:
+            value = self._secret.join([path, uname])
+        elif self.authlevel == 2:
+            value = self._secret.join([uname, path, passhash, method])
+        elif self.authlevel == 1:
+            value = self._secret.join([uname, raddr, path, passhash, method, uagent])
+        return hmac.new(self._secret, value, sha).hexdigest()
         
 
 def cookie(authfunc, **kw):
+    '''Decorator for cookie authentication.'''
     def decorator(application):
         return Cookie(application, authfunc, **kw)
     return decorator
