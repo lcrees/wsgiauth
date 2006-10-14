@@ -3,7 +3,7 @@
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 # This code was written with funding by http://prometheusresearch.com
 
-'''Cookie Authentication.'''
+'''Cookie-Based Authentication.'''
 
 import os, sha, hmac, base64, time 
 from Cookie import SimpleCookie
