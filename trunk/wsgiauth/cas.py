@@ -64,17 +64,17 @@ def AuthCASHandler(application, authority):
             sub-paths as described in the CAS 1.0 documentation.
 
     """
-    assert authority.endswith("/") and authority.startswith("http")
+    assert authority.endswith('/') and authority.startswith('http')
     def cas_application(environ, start_response):
-        username = environ.get('REMOTE_USER','')
+        username = environ.get('REMOTE_USER', '')
         if username: return application(environ, start_response)
-        qs = environ.get('QUERY_STRING','').split('&')
+        qs = environ.get('QUERY_STRING', '').split('&')
         if qs and qs[-1].startswith('ticket='):
             # assume a response from the authority
             ticket = qs.pop().split('=', 1)[1]
             environ['QUERY_STRING'] = '&'.join(qs)
             service = request_uri(environ)
-            args = urllib.urlencode({'service': service,'ticket': ticket})
+            args = urllib.urlencode({'service':service, 'ticket':ticket})
             requrl = ''.join([authority, 'validate?', args])
             result = urllib.urlopen(requrl).read().split('\n')
             if 'yes' == result[0]:
@@ -90,12 +90,11 @@ def AuthCASHandler(application, authority):
         return exce.wsgi_application(environ, start_response)
     return cas_application
 
-middleware = AuthCASHandler
 
 __all__ = ['CASLoginFailure', 'CASAuthenticate', 'AuthCASHandler' ]
 
 if '__main__' == __name__:
-    authority = "https://secure.its.yale.edu/cas/servlet/"
+    authority = 'https://secure.its.yale.edu/cas/servlet/'
     from paste.wsgilib import dump_environ
     from paste.httpserver import serve
     from paste.httpexceptions import *
