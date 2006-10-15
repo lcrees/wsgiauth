@@ -1,8 +1,8 @@
 # (c) 2005 Ben Bangert
 # This module is part of the Python Paste Project and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
-"""
-OpenID Authentication (Consumer)
+
+'''OpenID Authentication (Consumer)
 
 OpenID is a distributed authentication system for single sign-on originally
 developed at/for LiveJournal.com.
@@ -51,7 +51,7 @@ the users OpenID URL. If this key does not exist, the user has not logged in.
 Once the login is retrieved, it should be saved in your webapp, and the user
 should be redirected to wherever they would normally go after a successful
 login.
-"""
+'''
 
 import cgi
 import urlparse
