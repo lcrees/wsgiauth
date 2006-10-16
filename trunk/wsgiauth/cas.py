@@ -73,9 +73,8 @@ class CAS(object):
         self.forbidden = kw.get('forbidden', self._verboten)    
     
     def __call__(self, environ, start_response):        
-        username = environ.get('REMOTE_USER', '')
-        if username != '':
-            return self.application(environ, start_response)
+        username = environ.get('REMOTE_USER')
+        if username is not None: return self.application(environ, start_response)
         qs = environ.get('QUERY_STRING', '').split('&')
         if qs and qs[-1].startswith('ticket='):
             # assume a response from the authority

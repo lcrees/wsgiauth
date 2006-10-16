@@ -69,6 +69,7 @@ class Cookie(object):
                 userdata = extract(environ)
                 if self.authfunc(userdata):
                     environ['wsgiauth.userdata'] = userdata
+                    environ['REMOTE_USER'] = userdata['username']
                     environ['AUTH_TYPE'] = 'cookie'
                     environ['REQUEST_METHOD'] = 'GET'
                     environ['CONTENT_LENGTH'] = ''
@@ -84,7 +85,7 @@ class Cookie(object):
     def _authenticate(self, env):
         try:
             cookies = SimpleCookie(env['HTTP_COOKIE'])
-            cookie = cookies[self.name]            
+            cookie = cookies[self.name]
             confirm = self.tracker[cookie.value]
             if self.authlevel == 4: return True
             value = base64.urlsafe_b64decode(cookie.value)            
