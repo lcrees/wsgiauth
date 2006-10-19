@@ -57,11 +57,11 @@ to use sha would be a good thing.
 
 '''
 
-import md5, time, random, urllib2
+import md5, time, random
 
 def digest_password(realm, username, password):
     ''' construct the appropriate hashcode needed for HTTP digest '''
-    return md5.md5('%s:%s:%s' % (username, realm, password)).hexdigest()
+    return md5.new('%s:%s:%s' % (username, realm, password)).hexdigest()
 
 class _Scheme(object):
 
@@ -120,7 +120,7 @@ class _Digest(_Scheme):
             self.nonce[nonce] = None
             parts = {'realm':self.realm, 'qop':'auth', 'nonce':nonce, 'opaque':opaque}
             if stale: parts['stale'] = 'true'
-            head = ', '.join(['%s="%s"' % (k,v) for (k,v) in parts.items()])
+            head = ', '.join(['%s="%s"' % (k, v) for (k, v) in parts.items()])
             start_response('401 Unauthorized', [('content-type','text/plain'),
                 ('WWW-Authenticate', 'Digest %s' % head)])
             return [self.message]

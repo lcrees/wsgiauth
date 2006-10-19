@@ -20,10 +20,10 @@ authentication methods to be used concurrently.
 '''
 
 import urllib
-from wsgiref import request_uri
+from wsgiref.util import request_uri
 
 
-class _Redir(self, location):
+class _Redir(object):
 
     def __init__(self, location):
         self.location = location
@@ -102,10 +102,11 @@ class CAS(object):
             'access the resource you requested from your current location.\r\n']
 
 
-def ip(authority, **kw):
+
+def cas(authority, **kw):
     '''Decorator for CAS authentication.'''
     def decorator(application):
-        return IPAuth(application, authority, **kw)
+        return CAS(application, authority, **kw)
     return decorator
 
 __all__ = ['CAS', 'cas']

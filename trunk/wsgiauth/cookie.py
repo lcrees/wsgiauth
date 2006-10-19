@@ -11,7 +11,7 @@ from datetime import datetime
 from wsgiref.util import request_uri
 from util import extract
 
-TEMPLATE ='''<html>
+TEMPLATE = '''<html>
   <head><title>Please Login</title></head>
   <body>
     <h1>Please Login</h1>
@@ -33,7 +33,7 @@ _cryptsize = len(hmac.new('x', 'x', sha).hexdigest())
 
 def secretgen():
     ''' returns a 64 byte secret '''
-    return ''.join(_idchars[ord(c) % len(_idchars)] for c in os.urandom(64))
+    return ''.join(_idchars[ord(i) % len(_idchars)] for i in os.urandom(64))
 
 def gettime(value):
     return datetime(*time.strptime(value)[0:7])
@@ -85,10 +85,10 @@ class Cookie(object):
     def _authenticate(self, env):
         try:
             cookies = SimpleCookie(env['HTTP_COOKIE'])
-            cookie = cookies[self.name]
-            confirm = self.tracker[cookie.value]
+            ncookie = cookies[self.name]
+            confirm = self.tracker[ncookie.value]
             if self.authlevel == 4: return True
-            value = base64.urlsafe_b64decode(cookie.value)            
+            value = base64.urlsafe_b64decode(ncookie.value)
             cvalue = value[:_cryptsize]
             date = gettime(value[_cryptsize:].decode('hex'))
             if date > datetime.now().replace(microsecond=0):
@@ -120,22 +120,22 @@ class Cookie(object):
         method = environ['REQUEST_METHOD']
         useragent = environ['HTTP_USER_AGENT']
         ipaddr = environ['REMOTE_ADDR']
-        hash = self.compute(username, ipaddr, path, method, useragent, password)
+        secret = self.compute(username, ipaddr, path, method, useragent, password)
         timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
-        value = base64.urlsafe_b64encode(hash + timeout.encode('hex'))
+        value = base64.urlsafe_b64encode(secret + timeout.encode('hex'))
         confirm = {'username':username, 'path':path, 'password':password, 'method':method}
         self.tracker[value] = confirm 
-        cookie = SimpleCookie()
-        cookie[self.name] = value
-        cookie[self.name]['path'] = self.path or path
-        cookie[self.name]['max-age'] = self.age
+        ncookie = SimpleCookie()
+        ncookie[self.name] = value
+        ncookie[self.name]['path'] = self.path or path
+        ncookie[self.name]['max-age'] = self.age
         if self.domain is not None:
-            cookie[self.name]['domain'] = self.age
+            ncookie[self.name]['domain'] = self.age
         if self.comment is not None:
-            cookie[self.name]['comment'] = self.comment
+            ncookie[self.name]['comment'] = self.comment
         if environ['wsgi.url_scheme'] == 'https':
-            cookie[self.name]['secure'] = ''
-        return cookie[self.name].OutputString()
+            ncookie[self.name]['secure'] = ''
+        return ncookie[self.name].OutputString()
 
     def _compute(self, uname, raddr, path, method, uagent, password):
         passhash = sha.new(password).hexdigest()
