@@ -149,7 +149,7 @@ class _Digest(_Scheme):
         the request returning authenticated user or error.
         '''
         method = environ['REQUEST_METHOD']
-        fullpath = ''.join([environ['SCRIPT_NAME'], environ['PATH_INFO']])
+        fullpath = environ['SCRIPT_NAME'] + environ['PATH_INFO']
         authorization = environ.get('HTTP_AUTHORIZATION')
         if authorization is None: return self.authresponse()
         authmeth, auth = authorization.split(' ', 1)
