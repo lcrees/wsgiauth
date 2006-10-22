@@ -57,11 +57,28 @@ to use sha would be a good thing.
 
 '''
 
-import md5, time, random
+import md5
+import time
+import random
+
+__all__ = ['HTTPAuth', 'Basic', 'basic', 'Digest', 'digest', 'digest_password']
 
 def digest_password(realm, username, password):
     ''' construct the appropriate hashcode needed for HTTP digest '''
     return md5.new('%s:%s:%s' % (username, realm, password)).hexdigest()
+
+def basic(realm, authfunc, **kw):
+    '''Decorator for HTTP basic middleware.'''
+    def decorator(application):
+        return HTTPAuth(application, realm, authfunc, Basic, **kw)
+    return decorator
+
+def digest(realm, authfunc, **kw):
+    '''Decorator for HTTP digest middleware.'''
+    def decorator(application):
+        return HTTPAuth(application, realm, authfunc, Digest, **kw)
+    return decorator
+
 
 class _Scheme(object):
 
@@ -75,11 +92,14 @@ class _Scheme(object):
         # WSGI app that sends a 401 response
         self.authresponse = kw.get('response', self._authresponse)
         # Message to return with 401 response
-        self.message = kw.get('message', self._msg) 
+        self.message = kw.get('message', self._msg)
+        
 
-class _Basic(_Scheme):
+class Basic(_Scheme):
 
-    '''Performs HTTP basic authentication.'''      
+    '''Performs HTTP basic authentication.'''
+
+    authtype = 'basic'    
     
     def __init__(self, realm, authfunc, **kw):
         super(_Basic, self).__init__(realm, authfunc, **kw)
@@ -104,16 +124,18 @@ class _Basic(_Scheme):
         return self.authresponse
 
 
-class _Digest(_Scheme):
+class Digest(_Scheme):
     
     '''Performs HTTP digest authentication.'''
+
+    authtype = 'digest'        
     
     def __init__(self, realm, authfunc, **kw):
         super(_Digest, self).__init__(realm, authfunc, **kw)
         self.nonce = dict() # list to prevent replay attacks
 
     def _authresponse(self, stale = ''):
-        ''' builds the authentication error '''
+        '''Builds the authentication error.'''
         def coroutine(environ, start_response):
             nonce = md5.new('%s:%s' % (time.time(), random.random())).hexdigest()
             opaque = md5.new('%s:%s' % (time.time(), random.random())).hexdigest()
@@ -127,7 +149,7 @@ class _Digest(_Scheme):
         return coroutine
 
     def compute(self, ha1, username, response, method, path, nonce, nc, cnonce, qop):
-        ''' computes the authentication, raises error if unsuccessful '''
+        '''Computes the authentication, raises error if unsuccessful.'''
         if not ha1: return self.authresponse()
         ha2 = md5.new('%s:%s' % (method, path)).hexdigest()
         if qop:
@@ -201,34 +223,17 @@ class HTTPAuth(object):
             help construct the hashcode; it is recommended that the hashcode
             is stored in a database, not the user's actual password (since you
             only need the hashcode).
-        @param scheme HTTP authentication scheme: 'basic' or 'digest'            
+        @param scheme HTTP authentication scheme: Basic or Digest            
         '''
-        self.application, self.scheme = application, scheme
-        if scheme == 'digest':
-            self.authenticate = _Digest(realm, authfunc, **kw)
-        elif scheme == 'basic':
-            self.authenticate = _Basic(realm, authfunc)
+        self.application = application
+        self.authenticate = scheme(realm, authfunc, **kw)
+        self.scheme = scheme.authtype
 
-    def __call__(self, env, start_response):
-        '''WSGI callable.'''
-        user = env.get('REMOTE_USER')
+    def __call__(self, environ, start_response):
+        user = environ.get('REMOTE_USER')
         if user is None:
             result = self.authenticate(env)
-            if not isinstance(result, str): return result(env, start_response)
-            env['AUTH_TYPE'], env['REMOTE_USER'] = self.scheme, result    
-        return self.application(env, start_response)
-
-
-def basic(realm, authfunc, **kw):
-    '''Decorator for HTTP basic middleware.'''
-    def decorator(application):
-        return HTTPAuth(application, realm, authfunc, 'basic', **kw)
-    return decorator
-
-def digest(realm, authfunc, **kw):
-    '''Decorator for HTTP digest middleware.'''
-    def decorator(application):
-        return HTTPAuth(application, realm, authfunc, 'digest', **kw)
-    return decorator
-
-__all__ = ['HTTPAuth', 'basic', 'digest', 'digest_password']
+            if not isinstance(result, str):
+                return result(environ, start_response)
+            environ['AUTH_TYPE'], environ['REMOTE_USER'] = self.scheme, result    
+        return self.application(environ, start_response)
