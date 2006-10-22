@@ -4,15 +4,23 @@ from urllib import quote
 
 class Redir(object):
 
-    def __init__(self, location):
+    '''WSGI application for HTTP 30x redirects.'''    
+
+    def __init__(self, location, **kw):
         self.location = location
+        self.status = kw.get('status', '302 Found')
+        self.body = kw.get('body', self._body) 
 
     def __call__(self, environ, start_response):
-        start_response('302 Found', [('content-type', 'text/html'),
+        start_response(self.status, [('content-type', 'text/html'),
             ('location', self.location)])
-        return ['<html>\n<head><title>Redirecting to %s</title><head>\n' \
-        '<body>You are being redirected to <a href="%s">%s</a>' \
-        '</body></html>\n' % (self.location, self.location, self.location)]
+        return self.body(self.location)
+
+    def _body(self, location):
+        '''30x message body.'''
+        return ['<html>\n<head><title>Redirecting to %s</title></head>\n' \
+        '<body>\nYou are being redirected to <a href="%s">%s</a>\n' \
+        '</body>\n</html>' % (location, location, location)]
 
 
 def extract(environ, empty=False, err=False):
@@ -49,4 +57,4 @@ def request_uri(environ, include_query=1):
     url += quote(environ.get('PATH_INFO',''))
     if include_query and environ.get('QUERY_STRING'):
         url += '?' + environ['QUERY_STRING']
-    return url    
+    return url
