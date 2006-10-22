@@ -9,15 +9,16 @@ class Redir(object):
     def __init__(self, location, **kw):
         self.location = location
         self.status = kw.get('status', '302 Found')
-        self.body = kw.get('body', self._body) 
+        self.body = kw.get('body', Redir._body) 
 
     def __call__(self, environ, start_response):
         start_response(self.status, [('content-type', 'text/html'),
             ('location', self.location)])
         return self.body(self.location)
-
-    def _body(self, location):
-        '''30x message body.'''
+        
+    @classmethod
+    def _body(cls, location):
+        '''HTTP 30x message body.'''
         return ['<html>\n<head><title>Redirecting to %s</title></head>\n' \
         '<body>\nYou are being redirected to <a href="%s">%s</a>\n' \
         '</body>\n</html>' % (location, location, location)]

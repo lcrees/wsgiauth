@@ -89,7 +89,7 @@ class BaseAuth(object):
             return False
         return False            
 
-    def _getid(self, environ):
+    def _gettoken(self, environ):
         username = environ['REMOTE_USER']
         path = environ['SCRIPT_NAME'] + environ['PATH_INFO']
         useragent = environ['HTTP_USER_AGENT']
@@ -102,7 +102,7 @@ class BaseAuth(object):
         self.tracker[value] = confirm
         return value
 
-    def _authid(self, environ, value):
+    def _authtoken(self, environ, value):
         confirm = self.tracker[value]
         username, path = confirm['username'], confirm['path']
         if self.authlevel == 4:
