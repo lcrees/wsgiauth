@@ -26,6 +26,15 @@ except ImportError:
     from util import request_uri
 from util import Redir
 
+__all__ = ['CAS', 'cas']
+
+def cas(authority, **kw):
+    '''Decorator for CAS authentication.'''
+    def decorator(application):
+        return CAS(application, authority, **kw)
+    return decorator
+
+
 
 class CAS(object):
 
@@ -61,7 +70,7 @@ class CAS(object):
         assert authority.endswith('/') and authority.startswith('http')
         self.authority = authority
         self.application = application
-        self.redirect = kw.get('redirect', _Redir)
+        self.redirect = kw.get('redirect', Redir)
         self.forbidden = kw.get('forbidden', self._verboten)    
     
     def __call__(self, environ, start_response):        
@@ -92,13 +101,3 @@ class CAS(object):
         start_response('403 Forbidden', [('content-type', 'text/plain')])
         return ['This server could not verify that you are authorized to\r\n'
             'access the resource you requested from your current location.\r\n']
-
-
-
-def cas(authority, **kw):
-    '''Decorator for CAS authentication.'''
-    def decorator(application):
-        return CAS(application, authority, **kw)
-    return decorator
-
-__all__ = ['CAS', 'cas']
