@@ -9,19 +9,42 @@ class Redir(object):
     def __init__(self, location, **kw):
         self.location = location
         self.status = kw.get('status', '302 Found')
-        self.body = kw.get('body', Redir._body) 
+        self.message = kw.get('message', Redir._message) 
 
     def __call__(self, environ, start_response):
         start_response(self.status, [('content-type', 'text/html'),
             ('location', self.location)])
-        return self.body(self.location)
+        return self.message(self.location)
         
     @classmethod
-    def _body(cls, location):
+    def _message(cls, location):
         '''HTTP 30x message body.'''
         return ['<html>\n<head><title>Redirecting to %s</title></head>\n' \
         '<body>\nYou are being redirected to <a href="%s">%s</a>\n' \
         '</body>\n</html>' % (location, location, location)]
+
+
+class Forbidden(environ, start_response):
+    
+    '''WSGI application informing a user agent that it lacks credentials for a
+    website location.'''
+
+    def __init__(self, **kw):
+        self.location = kw.get('location')
+        self.message = kw.get('message', Forbidden._message)
+        
+    def __call__(self, environ, start_response):
+        start_response('403 Forbidden', [('content-type', 'text/plain')])
+        return self.message(self.location)
+
+    @classmethod    
+    def _message(location):
+        '''A message that a path is forbidden.'''
+        if location is None:
+            return ['This server could not verify that you are authorized to' \
+             'access the resource you requested from your current location.']
+        return ['This server could not verify that you are authorized to' \
+             'access %s from your current location.' % location]
 
 
 def extract(environ, empty=False, err=False):

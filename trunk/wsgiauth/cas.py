@@ -24,7 +24,7 @@ try:
     from wsgiref.util import request_uri
 except ImportError:
     from util import request_uri
-from util import Redir
+from util import Redir, Forbidden
 
 __all__ = ['CAS', 'cas']
 
@@ -71,11 +71,12 @@ class CAS(object):
         self.authority = authority
         self.application = application
         self.redirect = kw.get('redirect', Redir)
-        self.forbidden = kw.get('forbidden', self._verboten)    
+        self.forbidden = kw.get('forbidden', Forbidden)
     
     def __call__(self, environ, start_response):        
         username = environ.get('REMOTE_USER')
-        if username is not None: return self.application(environ, start_response)
+        if username is not None:
+            return self.application(environ, start_response)
         qs = environ.get('QUERY_STRING', '').split('&')
         if qs and qs[-1].startswith('ticket='):
             # assume a response from the authority
@@ -96,8 +97,3 @@ class CAS(object):
             location = ''.join([self.authority, 'login?', args])
             exce = self.redirect(location)
         return exce(environ, start_response)
-
-    def _verboten(self, environ, start_response):
-        start_response('403 Forbidden', [('content-type', 'text/plain')])
-        return ['This server could not verify that you are authorized to\r\n'
-            'access the resource you requested from your current location.\r\n']
