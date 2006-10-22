@@ -4,6 +4,7 @@ try:
 except ImportError:
     from util import request_uri
 from util import Redir
+from baseauth import BaseAuth
 
 __all__ = ['URLAuth', 'urlauth']
 
@@ -14,7 +15,7 @@ def urlauth(authfunc, **kw):
     return decorator
 
 
-class URLAuth(_AuthBase):
+class URLAuth(BaseAuth):
 
     authtype = 'url'
 
