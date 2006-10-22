@@ -70,7 +70,7 @@ class URLAuth(BaseAuth):
             return redirect(environ, start_response)
         return self.application(environ, start_response)     
 
-    def _validate(self, environ):
+    def _authenticate(self, environ):
         '''Authenticates a token embedded in a query component.'''
         try:            
             query = cgi.parse_qs(environ['QUERY_STRING'])        

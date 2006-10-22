@@ -75,7 +75,7 @@ class Cookie(BaseAuth):
             return self.application(environ, cookie_response)
         return self.application(environ, start_response)
         
-    def _validate(self, environ):
+    def _authenticate(self, environ):
         '''Authenticates a token embedded in a cookie.'''
         try:
             cookies = SimpleCookie(environ['HTTP_COOKIE'])

@@ -64,7 +64,7 @@ class BasicAuth(Scheme):
 
     authtype = 'basic'
 
-    def _authresponse(self, environ, start_response):
+    def _response(self, environ, start_response):
         '''Default HTTP basic authentication response.'''
         start_response('401 Unauthorized', [('content-type', 'text/plain'),
             ('WWW-Authenticate', 'Basic realm="%s"' % self.realm)])
@@ -75,10 +75,10 @@ class BasicAuth(Scheme):
         the request returning authenticated user or error.
         '''
         authorization = environ.get('HTTP_AUTHORIZATION')
-        if authorization is None: return self.authresponse   
+        if authorization is None: return self.response   
         authmeth, auth = authorization.split(' ', 1)
-        if authmeth.lower() != 'basic': return self.authresponse
+        if authmeth.lower() != 'basic': return self.response
         auth = auth.strip().decode('base64')
         username, password = auth.split(':', 1)
         if self.authfunc(environ, username, password): return username
-        return self.authresponse
+        return self.response

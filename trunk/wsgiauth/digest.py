@@ -77,7 +77,7 @@ class DigestAuth(Scheme):
         super(DigestAuth, self).__init__(realm, authfunc, **kw)
         self.nonce = kw.get('nonce', _nonce) # dict to prevent replay attacks
 
-    def _authresponse(self, stale = ''):
+    def _response(self, stale = ''):
         '''Builds the authentication error.'''
         def coroutine(environ, start_response):
             nonce = md5.new('%s:%s' % (time.time(),
@@ -97,7 +97,7 @@ class DigestAuth(Scheme):
     def compute(self, ha1, username, response, method, path, nonce, nc,
             cnonce, qop):
         '''Computes the authentication, raises error if unsuccessful.'''
-        if not ha1: return self.authresponse()
+        if not ha1: return self.response()
         ha2 = md5.new('%s:%s' % (method, path)).hexdigest()
         if qop:
             chk = '%s:%s:%s:%s:%s:%s' % (ha1, nonce, nc, cnonce, qop, ha2)
@@ -105,11 +105,11 @@ class DigestAuth(Scheme):
             chk = '%s:%s:%s' % (ha1, nonce, ha2)
         if response != md5.new(chk).hexdigest():
             if nonce in self.nonce: del self.nonce[nonce]
-            return self.authresponse()
+            return self.response()
         pnc = self.nonce.get(nonce, '00000000')
         if nc <= pnc:
             if nonce in self.nonce: del self.nonce[nonce]
-            return self.authresponse(stale=True)
+            return self.response(stale=True)
         self.nonce[nonce] = nc
         return username
 
@@ -120,9 +120,9 @@ class DigestAuth(Scheme):
         method = environ['REQUEST_METHOD']
         fullpath = environ['SCRIPT_NAME'] + environ['PATH_INFO']
         authorization = environ.get('HTTP_AUTHORIZATION')
-        if authorization is None: return self.authresponse()
+        if authorization is None: return self.response()
         authmeth, auth = authorization.split(' ', 1)
-        if 'digest' != authmeth.lower(): return self.authresponse()
+        if 'digest' != authmeth.lower(): return self.response()
         amap = dict()
         for itm in auth.split(', '):
             k, v = [s.strip() for s in itm.split('=', 1)]
@@ -142,7 +142,7 @@ class DigestAuth(Scheme):
                 assert 'auth' == qop
                 assert nonce and nc
         except:
-            return self.authresponse()
+            return self.response()
         ha1 = self.authfunc(environ, realm, username)
         return self.compute(ha1, username, response, method, authpath, nonce,
             nc, cnonce, qop)

@@ -1,8 +1,43 @@
+# (c) 2005 Clark C. Evans
+# This module is part of the Python Paste Project and is released under
+# the MIT License: http://www.opensource.org/licenses/mit-license.php
+# This code was written with funding by http://prometheusresearch.com
+#
+# Copyright (c) 2005 Allan Saddi <allan@saddi.com>
+# Copyright (c) 2006 L. C. Rees.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1.  Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 2.  Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 3.  Neither the name of the Portable Site Information Project nor the names
+# of its contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+'''Base authentication classes.'''
+
 import os
 import sha
 import hmac
 import base64
 import time
+from urllib import quote
 from datetime import datetime
 try:
     from wsgiref.util import request_uri
@@ -11,9 +46,9 @@ except ImportError:
 from util import extract
     
 
-__all__ = ['BaseAuth', 'Scheme', 'HTTPAuth']
+__all__ = ['BaseAuth', 'Scheme', 'HTTPAuth', 'AuthResponse']
 
-# Default template
+# Default authorization response template
 TEMPLATE = '''<html>
  <head><title>Please Login</title></head>
  <body>
@@ -49,38 +84,73 @@ def gettime(date):
 
 # Fallback secret
 _secret = getsecret()
+# Fallback tracker
+_tracker = dict()
+
+
+class AuthResponse(object):
+
+    def __init__(self, message=None, template=None):
+        # Authorization message
+        self.response = message or self._response        
+        # Authorization response template
+        self.template = template or TEMPLATE
+
+    def __call__(self, environ, start_response):
+        start_response('200 OK', [('Content-type', 'text/html')])
+        return self.response(environ)
+
+    def _response(self, environ): 
+        '''Returns an iterator containing a message body.'''
+        return [self.template % request_uri(environ, 0)]
 
 
 class BaseAuth(object):
+
+    '''Base class for authentication persisting.'''
 
     fieldname = '_CA_'
     authtype = None
 
     def __init__(self, application, authfunc, **kw):
         self.application = application
+        # Custom authorization function
         self.authfunc = authfunc
-        self._secret = kw.get('secret', _secret)        
+        # Secret signing key
+        self._secret = kw.get('secret', _secret)
+        # Authentication function
         self.authenticate = kw.get('authenticate', self._authenticate)
+        # Authorization wrapper method
         self.authorize = kw.get('authorize', self._authorize)
-        self.generate = kw.get('generate', self._generate) 
+        # Token generator
+        self.generate = kw.get('generate', self._generate)
+        # Token value encoder
         self.compute = kw.get('compute', self._compute)
-        self.response = kw.get('response', self._response)        
-        self.template = kw.get('template', TEMPLATE)
+        # Authorization response
+        self.response = kw.get('response', self.AuthResponse)
+        # Token name
         self.name = kw.get('name', self.fieldname)
-        self.tracker = kw.get('tracker', {})        
+        # Token tracking store
+        self.tracker = kw.get('tracker', _tracker)
+        # Per request authentication level (1-4)
         self.authlevel = kw.get('authlevel', 1)
+        # Authentication session timeout
         self.timeout = kw.get('timeout', 3600)
-        self.namevar = kw.get('namevar', 'username')
-
-    def _authenticate(self, environ):
-        return self._validate(environ)
+        # Form variable for username
+        self.namevar = kw.get('namevar', 'username')    
         
     def _authorize(self, environ):
+        '''Checks authorization credentials for a request.'''
+        # Provide persistence for already authenticated requests
         if environ.get('REMOTE_USER') is not None:
             return True
+        # Complete authorization process
         elif environ['REQUEST_METHOD'] == 'POST':
+            # Get user credentials
             userdata = extract(environ)
+            # Check authorization of user credentials
             if self.authfunc(userdata):
+                # Set environ entries
                 environ['REMOTE_USER'] = userdata[self.namevar]                
                 environ['REQUEST_METHOD'] = 'GET'
                 environ['CONTENT_LENGTH'] = ''
@@ -90,59 +160,74 @@ class BaseAuth(object):
         return False            
 
     def _gettoken(self, environ):
-        username = environ['REMOTE_USER']
-        path = environ['SCRIPT_NAME'] + environ['PATH_INFO']
-        useragent = environ['HTTP_USER_AGENT']
-        raddr = environ['REMOTE_ADDR']
-        server = environ['SERVER_NAME']
-        id = self.compute(username, raddr, server, path, useragent)
+        '''Generates authentication tokens.'''
+        user = environ['REMOTE_USER']
+        path = quote(environ['SCRIPT_NAME']) + quote(environ['PATH_INFO'])
+        agent = environ['HTTP_USER_AGENT']
+        raddr, server = environ['REMOTE_ADDR'], environ['SERVER_NAME']
+        # Onetime secret
+        nonce = getsecret()
+        # Compute authentication token
+        authtoken = self.compute(user, raddr, server, path, agent, nonce)
+        # Compute token timeout
         timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
-        value = base64.urlsafe_b64encode(id + timeout.encode('hex'))
-        confirm = {'username':username, 'path':path}
-        self.tracker[value] = confirm
-        return value
+        # Generate persistent token
+        token = base64.urlsafe_b64encode(authtoken + timeout.encode('hex'))        
+        # Store onetime token info for future authentication
+        self.tracker[token] =  {'user':user, 'path':path, 'nonce':nonce}
+        return token
 
-    def _authtoken(self, environ, value):
-        confirm = self.tracker[value]
-        username, path = confirm['username'], confirm['path']
-        if self.authlevel == 4:
-            environ['REMOTE_USER'] = username
-            environ['AUTH_TYPE'] = self.authtype
-            return True
-        authstring = base64.urlsafe_b64decode(value)
-        current = authstring[:_cryptsize]
-        date = gettime(authstring[_cryptsize:].decode('hex'))
+    def _authtoken(self, environ, token):
+        '''Authenticates authentication tokens.'''
+        authtoken = base64.urlsafe_b64decode(token)
+        # Get authentication token
+        current = authtoken[:_cryptsize]
+        # Get expiration time
+        date = gettime(authtoken[_cryptsize:].decode('hex'))
+        # Check if authentication is expired
         if date > datetime.now().replace(microsecond=0):
-            useragent = environ['HTTP_USER_AGENT']                
-            raddr = environ['REMOTE_ADDR']
-            server = environ['SERVER_NAME']
-            newvalue = self.compute(username, raddr, server, path, useragent) 
-            if newvalue != current: return False
-            environ['REMOTE_USER'] = username
+            # Get onetime token info
+            once = self.tracker[token]
+            user, path, nonce = once['user'], once['path'], once['nonce'] 
+            # Perform full token authentication if authlevel != 4
+            if self.authlevel != 4:
+                agent = environ['HTTP_USER_AGENT']                
+                raddr = environ['REMOTE_ADDR']
+                server = environ['SERVER_NAME']
+                newtoken = self.compute(user, raddr, server, path, agent, nonce) 
+                if newtoken != current: return False
+            # Set user and authentication type
+            environ['REMOTE_USER'] = user
             environ['AUTH_TYPE'] = self.authtype
             return True        
 
-    def _compute(self, username, raddr, server, path, uagent):
+    def _compute(self, user, raddr, server, path, agent, nonce):
+        '''Computes a token.'''
+       
+        # Verify minimum path and user auth
         if self.authlevel == 3 or 4:
-            value = self._secret.join([path, username])
+            key = self._secret.join([path, nonce, user])
+        # Verify through 3 + agent and originating server
         elif self.authlevel == 2:
-            value = self._secret.join([username, path, server, uagent])
+            key = self._secret.join([user, path, nonce, server, agent])
+        # Verify through 2 + IP address
         elif self.authlevel == 1:
-            value = self._secret.join([raddr, username, server, uagent, path])
-        return hmac.new(self._secret, value, sha).hexdigest()
+            key = self._secret.join([raddr, user, server, nonce, agent, path])
+        # Return HMAC signed token
+        return hmac.new(self._secret, token, sha).hexdigest()
 
-    def _response(self, environ, start_response):
-        start_response('200 OK', [('Content-type', 'text/html')])
-        return [self.template % request_uri(environ, 0)]
-
-    def _validate(self, environ):
+    def _authenticate(self, environ):
+        '''"Interface" for subclasses.'''
         raise NotImplementedError()
 
     def _generate(self, environ):
+        '''"Interface" for subclasses.'''
         raise NotImplementedError()
 
 
 class Scheme(object):
+
+    '''HTTP Authentication Base.'''    
 
     _msg = 'This server could not verify that you are authorized to\r\n' \
     'access the document you requested.  Either you supplied the\r\n' \
@@ -152,7 +237,7 @@ class Scheme(object):
     def __init__(self, realm, authfunc, **kw):
         self.realm, self.authfunc = realm, authfunc
         # WSGI app that sends a 401 response
-        self.authresponse = kw.get('response', self._authresponse)
+        self.response = kw.get('response', self._response)
         # Message to return with 401 response
         self.message = kw.get('message', self._msg)    
 
@@ -165,7 +250,8 @@ class HTTPAuth(object):
         '''
         @param application WSGI application.
         @param realm Identifier for authority requesting authorization.
-        @param authfunc For basic authentication, this is a mandatory
+        @param authfunc
+            For basic authentication, this is a mandatory
             user-defined function which takes a environ, username and
             password for its first three arguments. It should return True
             if the user is authenticated.
@@ -176,11 +262,11 @@ class HTTPAuth(object):
 
             authfunc(environ, realm, username) -> hashcode
 
-            This module provides a 'digest_password' helper function which can
-            help construct the hashcode; it is recommended that the hashcode
+            The 'digest' module provides a 'digest_password' helper function which
+            can help construct the hashcode; it is recommended that the hashcode
             is stored in a database, not the user's actual password (since you
             only need the hashcode).
-        @param scheme HTTP authentication scheme: Basic or Digest            
+        @param scheme HTTP authentication scheme            
         '''
         self.application = application
         self.authenticate = scheme(realm, authfunc, **kw)
@@ -192,5 +278,6 @@ class HTTPAuth(object):
             result = self.authenticate(env)
             if not isinstance(result, str):
                 return result(environ, start_response)
-            environ['AUTH_TYPE'], environ['REMOTE_USER'] = self.scheme, result    
+            environ['REMOTE_USER'] = result
+            environ['AUTH_TYPE'] = self.scheme    
         return self.application(environ, start_response)    
