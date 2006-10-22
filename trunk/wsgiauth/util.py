@@ -37,7 +37,7 @@ def extract(environ, empty=False, err=False):
     return formdata
 
 def request_uri(environ, include_query=1):
-    '''Rebuilds request URI (from PEP 333).
+    '''Algorithm for rebuilding request URI (from PEP 333).
     
     @param environ WSGI environ
     @include_query Is QUERY_STRING included in URI (default: 1)
@@ -53,8 +53,8 @@ def request_uri(environ, include_query=1):
         else:
             if environ['SERVER_PORT'] != '80':
                 url += ':' + environ['SERVER_PORT']
-    url += quote(environ.get('SCRIPT_NAME',''))
-    url += quote(environ.get('PATH_INFO',''))
+    url += quote(environ.get('SCRIPT_NAME', ''))
+    url += quote(environ.get('PATH_INFO', ''))
     if include_query and environ.get('QUERY_STRING'):
         url += '?' + environ['QUERY_STRING']
     return url
