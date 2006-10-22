@@ -82,5 +82,5 @@ class URLAuth(BaseAuth):
         '''Returns authentication token embedded in a query component.'''
         token = self._gettoken(environ)
         qstring = '='.join([self.name, token])
-        environ['QUERY_STRING'] = aqstring
+        environ['QUERY_STRING'] = qstring
         return request_uri(environ)
