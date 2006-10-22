@@ -20,8 +20,11 @@ authentication methods to be used concurrently.
 '''
 
 import urllib
-from wsgiref.util import request_uri
-from cookie import Redir 
+try:
+    from wsgiref.util import request_uri
+except ImportError:
+    from util import request_uri
+from util import Redir
 
 
 class CAS(object):
