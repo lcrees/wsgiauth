@@ -21,18 +21,7 @@ authentication methods to be used concurrently.
 
 import urllib
 from wsgiref.util import request_uri
-
-
-class _Redir(object):
-
-    def __init__(self, location):
-        self.location = location
-
-    def __call__(self, environ, start_response):
-        start_response('303 Forbidden', [('content-type', 'text/plain'),
-                ('location', self.location)])
-        return ['You are being redirected to %s so you can be' \
-                'authenticated.\r\n' % self.location]   
+from cookie import Redir 
 
 
 class CAS(object):
