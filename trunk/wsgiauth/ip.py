@@ -30,6 +30,8 @@
 
 '''Authenticate an IP address.'''
 
+from util import Forbidden
+
 __all__ = ['IP', 'ip']
 
 def ip(authfunc, **kw):
@@ -47,16 +49,10 @@ class IP(object):
 
     def __init__(self, app, authfunc, **kw):
         self.app, self.authfunc = app, authfunc
-        self.authresponse = kw.get('authresponse', IP._authresponse)
+        self.response = kw.get('response', Forbidden)
 
     def __call__(self, environ, start_response):
         ipaddr = environ.get('REMOTE_ADDR')
         if not self.authfunc(environ, ipaddr):
-            return self.authresponse(environ, start_response)            
+            return self.response(environ, start_response)            
         return self.app(environ, start_response)
-
-    @classmethod
-    def _authresponse(cls, environ, start_response):
-        start_response('403 Forbidden', [('content-type', 'text/plain')])
-        return ['This server could not verify that you are authorized to\r\n'
-         'access the resource you requested from your current location.\r\n']

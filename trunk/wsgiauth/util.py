@@ -24,7 +24,7 @@ class Redir(object):
         '</body>\n</html>' % (location, location, location)]
 
 
-class Forbidden(environ, start_response):
+class Forbidden(object):
     
     '''WSGI application informing a user agent that it lacks credentials for a
     website location.'''
@@ -38,7 +38,7 @@ class Forbidden(environ, start_response):
         return self.message(self.location)
 
     @classmethod    
-    def _message(location):
+    def _message(cls, location):
         '''A message that a path is forbidden.'''
         if location is None:
             return ['This server could not verify that you are authorized to' \
