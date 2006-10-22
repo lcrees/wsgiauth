@@ -1,6 +1,7 @@
 import cgi
 from urllib import quote
 
+
 class Redir(object):
 
     def __init__(self, location):
