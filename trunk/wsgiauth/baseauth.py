@@ -127,7 +127,7 @@ class BaseAuth(object):
         # Token value encoder
         self.compute = kw.get('compute', self._compute)
         # Authorization response
-        self.response = kw.get('response', self.AuthResponse)
+        self.response = kw.get('response', AuthResponse)
         # Token name
         self.name = kw.get('name', self.fieldname)
         # Token tracking store
@@ -172,7 +172,7 @@ class BaseAuth(object):
         # Compute token timeout
         timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
         # Generate persistent token
-        token = base64.urlsafe_b64encode(authtoken + timeout.encode('hex'))        
+        token = base64.urlsafe_b64encode(authtoken + timeout.encode('hex'))
         # Store onetime token info for future authentication
         self.tracker[token] =  {'user':user, 'path':path, 'nonce':nonce}
         return token
@@ -194,7 +194,7 @@ class BaseAuth(object):
                 agent = environ['HTTP_USER_AGENT']                
                 raddr = environ['REMOTE_ADDR']
                 server = environ['SERVER_NAME']
-                newtoken = self.compute(user, raddr, server, path, agent, nonce) 
+                newtoken = self.compute(user, raddr, server, path, agent, nonce)
                 if newtoken != current: return False
             # Set user and authentication type
             environ['REMOTE_USER'] = user
@@ -214,7 +214,7 @@ class BaseAuth(object):
         elif self.authlevel == 1:
             key = self._secret.join([raddr, user, server, nonce, agent, path])
         # Return HMAC signed token
-        return hmac.new(self._secret, token, sha).hexdigest()
+        return hmac.new(self._secret, key, sha).hexdigest()
 
     def _authenticate(self, environ):
         '''"Interface" for subclasses.'''
@@ -233,6 +233,7 @@ class Scheme(object):
     'access the document you requested.  Either you supplied the\r\n' \
     'wrong credentials (e.g., bad password), or your browser\r\n' \
     'does not understand how to supply the credentials required.' 
+    
 
     def __init__(self, realm, authfunc, **kw):
         self.realm, self.authfunc = realm, authfunc
@@ -240,7 +241,7 @@ class Scheme(object):
         self.response = kw.get('response', self._response)
         # Message to return with 401 response
         self.message = kw.get('message', self._msg)    
-
+    
 
 class HTTPAuth(object):
 
@@ -275,7 +276,7 @@ class HTTPAuth(object):
     def __call__(self, environ, start_response):
         user = environ.get('REMOTE_USER')
         if user is None:
-            result = self.authenticate(env)
+            result = self.authenticate(environ)
             if not isinstance(result, str):
                 return result(environ, start_response)
             environ['REMOTE_USER'] = result
