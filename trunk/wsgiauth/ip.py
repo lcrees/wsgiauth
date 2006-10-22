@@ -11,8 +11,8 @@ class IP(object):
     '''
 
     def __init__(self, app, authfunc, **kw):
-        self.app, self.authfunc = app, authfunc 
-        self.authresponse = kw.get('handler', IP._authresponse)
+        self.app, self.authfunc = app, authfunc
+        self.authresponse = kw.get('authresponse', IP._authresponse)
 
     def __call__(self, environ, start_response):
         ipaddr = environ.get('REMOTE_ADDR')
@@ -24,7 +24,7 @@ class IP(object):
     def _authresponse(cls, environ, start_response):
         start_response('403 Forbidden', [('content-type', 'text/plain')])
         return ['This server could not verify that you are authorized to\r\n'
-            'access the resource you requested from your current location.\r\n']
+         'access the resource you requested from your current location.\r\n']
         
                 
 def ip(authfunc, **kw):
