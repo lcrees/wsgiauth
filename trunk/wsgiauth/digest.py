@@ -62,7 +62,7 @@ def digest_password(realm, username, password):
 def digest(realm, authfunc, **kw):
     '''Decorator for HTTP digest middleware.'''
     def decorator(application):
-        return HTTPAuth(application, realm, authfunc, Digest, **kw)
+        return HTTPAuth(application, realm, authfunc, DigestAuth, **kw)
     return decorator
 
 _nonce = dict()
@@ -80,10 +80,13 @@ class DigestAuth(Scheme):
     def _authresponse(self, stale = ''):
         '''Builds the authentication error.'''
         def coroutine(environ, start_response):
-            nonce = md5.new('%s:%s' % (time.time(), random.random())).hexdigest()
-            opaque = md5.new('%s:%s' % (time.time(), random.random())).hexdigest()
+            nonce = md5.new('%s:%s' % (time.time(),
+                random.random())).hexdigest()
+            opaque = md5.new('%s:%s' % (time.time(),
+                random.random())).hexdigest()
             self.nonce[nonce] = None
-            parts = {'realm':self.realm, 'qop':'auth', 'nonce':nonce, 'opaque':opaque}
+            parts = {'realm':self.realm, 'qop':'auth', 'nonce':nonce,
+                'opaque':opaque}
             if stale: parts['stale'] = 'true'
             head = ', '.join(['%s="%s"' % (k, v) for (k, v) in parts.items()])
             start_response('401 Unauthorized', [('content-type','text/plain'),
@@ -91,7 +94,8 @@ class DigestAuth(Scheme):
             return [self.message]
         return coroutine
 
-    def compute(self, ha1, username, response, method, path, nonce, nc, cnonce, qop):
+    def compute(self, ha1, username, response, method, path, nonce, nc,
+            cnonce, qop):
         '''Computes the authentication, raises error if unsuccessful.'''
         if not ha1: return self.authresponse()
         ha2 = md5.new('%s:%s' % (method, path)).hexdigest()
