@@ -3,9 +3,7 @@ import sha
 import hmac
 import base64
 import time
-import cgi
 from datetime import datetime
-from urllib import quote
 try:
     from wsgiref.util import request_uri
 except ImportError:
@@ -13,7 +11,7 @@ except ImportError:
 from util import extract
     
 
-__all__ = ['BaseAuth']
+__all__ = ['BaseAuth', 'Scheme', 'HTTPAuth']
 
 # Default template
 TEMPLATE = '''<html>
@@ -142,3 +140,57 @@ class BaseAuth(object):
 
     def _generate(self, environ):
         raise NotImplementedError()
+
+
+class Scheme(object):
+
+    _msg = 'This server could not verify that you are authorized to\r\n' \
+    'access the document you requested.  Either you supplied the\r\n' \
+    'wrong credentials (e.g., bad password), or your browser\r\n' \
+    'does not understand how to supply the credentials required.' 
+
+    def __init__(self, realm, authfunc, **kw):
+        self.realm, self.authfunc = realm, authfunc
+        # WSGI app that sends a 401 response
+        self.authresponse = kw.get('response', self._authresponse)
+        # Message to return with 401 response
+        self.message = kw.get('message', self._msg)    
+
+
+class HTTPAuth(object):
+
+    '''HTTP authentication middleware.'''    
+    
+    def __init__(self, application, realm, authfunc, scheme, **kw):
+        '''
+        @param application WSGI application.
+        @param realm Identifier for authority requesting authorization.
+        @param authfunc For basic authentication, this is a mandatory
+            user-defined function which takes a environ, username and
+            password for its first three arguments. It should return True
+            if the user is authenticated.
+
+            For digest authentication, this is a callback function which
+            performs the actual authentication; the signature of this
+            callback is:
+
+            authfunc(environ, realm, username) -> hashcode
+
+            This module provides a 'digest_password' helper function which can
+            help construct the hashcode; it is recommended that the hashcode
+            is stored in a database, not the user's actual password (since you
+            only need the hashcode).
+        @param scheme HTTP authentication scheme: Basic or Digest            
+        '''
+        self.application = application
+        self.authenticate = scheme(realm, authfunc, **kw)
+        self.scheme = scheme.authtype
+
+    def __call__(self, environ, start_response):
+        user = environ.get('REMOTE_USER')
+        if user is None:
+            result = self.authenticate(env)
+            if not isinstance(result, str):
+                return result(environ, start_response)
+            environ['AUTH_TYPE'], environ['REMOTE_USER'] = self.scheme, result    
+        return self.application(environ, start_response)    
