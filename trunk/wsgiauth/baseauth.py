@@ -39,10 +39,7 @@ import base64
 import time
 from urllib import quote
 from datetime import datetime
-try:
-    from wsgiref.util import request_uri
-except ImportError:
-    from util import request_uri
+from util import request_uri
 from util import extract
     
 
@@ -102,7 +99,7 @@ class AuthResponse(object):
 
     def _response(self, environ): 
         '''Returns an iterator containing a message body.'''
-        return [self.template % request_uri(environ, 0)]
+        return [self.template % request_uri(environ, False)]
 
 
 class BaseAuth(object):
