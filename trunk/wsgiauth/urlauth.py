@@ -35,11 +35,7 @@ components.
 '''
 
 import cgi
-try:
-    from wsgiref.util import request_uri
-except ImportError:
-    from util import request_uri
-from util import Redir
+from util import Redirect, request_uri
 from baseauth import BaseAuth
 
 __all__ = ['URLAuth', 'urlauth']
@@ -66,9 +62,9 @@ class URLAuth(BaseAuth):
             # Prompt for authorization if off
             if not authority: return self.response(environ, start_response)
             # Redirect to requested URL with auth token in query component
-            redirect = Redir(self.generate(environ))
+            redirect = Redirect(self.generate(environ))
             return redirect(environ, start_response)
-        return self.application(environ, start_response)     
+        return self.application(environ, start_response)
 
     def _authenticate(self, environ):
         '''Authenticates a token embedded in a query component.'''

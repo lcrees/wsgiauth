@@ -24,7 +24,7 @@ try:
     from wsgiref.util import request_uri
 except ImportError:
     from util import request_uri
-from util import Redir, Forbidden
+from util import Redirect, Forbidden
 
 __all__ = ['CAS', 'cas']
 
@@ -70,7 +70,7 @@ class CAS(object):
         assert authority.endswith('/') and authority.startswith('http')
         self.authority = authority
         self.application = application
-        self.redirect = kw.get('redirect', Redir)
+        self.redirect = kw.get('redirect', Redirect)
         self.forbidden = kw.get('forbidden', Forbidden)
     
     def __call__(self, environ, start_response):        

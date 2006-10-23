@@ -2,14 +2,14 @@ import cgi
 from urllib import quote
 
 
-class Redir(object):
+class Redirect(object):
 
     '''WSGI application for HTTP 30x redirects.'''    
 
     def __init__(self, location, **kw):
         self.location = location
         self.status = kw.get('status', '302 Found')
-        self.message = kw.get('message', Redir._message) 
+        self.message = kw.get('message', Redirect._message) 
 
     def __call__(self, environ, start_response):
         start_response(self.status, [('content-type', 'text/html'),
@@ -60,7 +60,7 @@ def extract(environ, empty=False, err=False):
         if len(value) == 1: formdata[key] = value[0]   
     return formdata
 
-def request_uri(environ, include_query=1):
+def request_uri(environ, include_query=True, include_path=True):
     '''Algorithm for rebuilding request URI (from PEP 333).
     
     @param environ WSGI environ
@@ -77,8 +77,9 @@ def request_uri(environ, include_query=1):
         else:
             if environ['SERVER_PORT'] != '80':
                 url += ':' + environ['SERVER_PORT']
-    url += quote(environ.get('SCRIPT_NAME', ''))
-    url += quote(environ.get('PATH_INFO', ''))
+    if include_path:
+        url += quote(environ.get('SCRIPT_NAME', ''))
+        url += quote(environ.get('PATH_INFO', ''))
     if include_query and environ.get('QUERY_STRING'):
         url += '?' + environ['QUERY_STRING']
     return url
