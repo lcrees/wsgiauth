@@ -33,7 +33,7 @@
 '''WSGI middleware for persistent authentication tokens in cookies.'''
 
 from Cookie import SimpleCookie
-from baseauth import BaseAuth
+from base import BaseAuth
 
 __all__ = ['Cookie', 'cookie']
 

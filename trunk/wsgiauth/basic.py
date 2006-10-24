@@ -47,7 +47,7 @@ takes care of requesting and handling authentication requests.
 This code has not been audited by a security expert, please use with
 caution (or better yet, report security holes).'''
 
-from baseauth import Scheme, HTTPAuth
+from base import Scheme, HTTPAuth
 
 __all__ = ['basic']
 

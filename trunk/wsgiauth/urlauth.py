@@ -36,7 +36,7 @@ components.
 
 import cgi
 from util import Redirect, request_uri
-from baseauth import BaseAuth
+from base import BaseAuth
 
 __all__ = ['URLAuth', 'urlauth']
 

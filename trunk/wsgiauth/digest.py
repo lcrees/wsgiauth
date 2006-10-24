@@ -51,7 +51,7 @@ to use sha would be a good thing if it was supported by browser clients.
 import md5
 import time
 import random
-from baseauth import HTTPAuth, Scheme
+from base import HTTPAuth, Scheme
 
 __all__ = ['digest', 'digest_password']
 
