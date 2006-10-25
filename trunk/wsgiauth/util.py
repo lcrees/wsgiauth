@@ -1,51 +1,103 @@
+# Copyright (c) 2006 L. C. Rees.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1.  Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 2.  Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+# 3.  Neither the name of the Portable Site Information Project nor the names
+# of its contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 import cgi
 from urllib import quote
 
 
-class Redirect(object):
+class Response(object):
 
-    '''WSGI application for HTTP 30x redirects.'''    
+    '''Generic WSGI application for HTTP responses.'''    
 
-    def __init__(self, location, **kw):
-        self.location = location
-        self.status = kw.get('status', '302 Found')
-        self.message = kw.get('message', Redirect._message) 
+    _template = None    
+    _status = '200 OK'
+    _ctype = 'text/html'
+
+    def __init__(self, message=None, **kw):
+        # Status
+        self.status = kw.get('status', self._status)
+        # Response iterator        
+        self.response = kw.get('response', self._response)
+        # Authorization message
+        self.message = message        
+        # Authorization response template
+        self.template = kw.get('template', self._template)
+        # Header list
+        self.headers = list()
+        # Content type
+        ctype = kw.get('content', self._ctype)
+        self.headers.append(('Content-type', ctype))
 
     def __call__(self, environ, start_response):
-        start_response(self.status, [('content-type', 'text/html'),
-            ('location', self.location)])
-        return self.message(self.location)
-        
-    @classmethod
-    def _message(cls, location):
-        '''HTTP 30x message body.'''
-        return ['<html>\n<head><title>Redirecting to %s</title></head>\n' \
-        '<body>\nYou are being redirected to <a href="%s">%s</a>\n' \
-        '</body>\n</html>' % (location, location, location)]
+        start_response(self.status, self.headers)
+        message = self.message or request_uri(environ, False)
+        return self.response(message)
 
-
-class Forbidden(object):
+    def _response(self, message):
+        '''Returns an iterator containing a message body.'''
+        return [self.template % message]
     
-    '''WSGI application informing a user agent that it lacks credentials for a
-    website location.'''
 
-    def __init__(self, **kw):
-        self.location = kw.get('location')
-        self.message = kw.get('message', Forbidden._message)
+class Redirect(Response):
+
+    '''WSGI application for HTTP 30x redirects.'''
+
+    _template = '<html>\n<head><title>Redirecting to %s</title></head>\n' \
+        '<body>\nYou are being redirected to <a href="%s">%s</a>\n' \
+        '</body>\n</html>'
+    _status = '302 Found'
+
+    def __call__(self, environ, start_response):
+        location = self.message or request_uri(environ)
+        self.headers.append(('location', location))
+        start_response(self.status, self.headers)
+        return self.response((location, location, location))
+    
+
+class Forbidden(Response):
+    
+    '''WSGI application for 403 responses.'''
+
+    _template = 'This server could not verify that you are authorized to' \
+             'access resource %s from your current location.'
+    _status = '403 Forbidden'
+    _ctype = 'text/plain'
         
     def __call__(self, environ, start_response):
-        start_response('403 Forbidden', [('content-type', 'text/plain')])
-        return self.message(self.location)
+        start_response(self.status, self.headers)
+        return self.response(self.message or request_path(environ))
 
-    @classmethod    
-    def _message(cls, location):
-        '''A message that a path is forbidden.'''
-        if location is None:
-            return ['This server could not verify that you are authorized to' \
-             'access the resource you requested from your current location.']
-        return ['This server could not verify that you are authorized to' \
-             'access %s from your current location.' % location]
 
+class NotFound(Forbidden):
+
+    '''WSGI application for 404 errors.'''
+
+    _template = 'This server could not find resource %s.'
+    _status = '404 Not Found'
+   
 
 def extract(environ, empty=False, err=False):
     '''Extracts strings in form data and returns a dict.
@@ -64,22 +116,29 @@ def request_uri(environ, include_query=True, include_path=True):
     '''Algorithm for rebuilding request URI (from PEP 333).
     
     @param environ WSGI environ
-    @include_query Is QUERY_STRING included in URI (default: 1)
+    @param include_query Is QUERY_STRING included in URI (default: True)
+    @param include_path Is path included in URI (default: True)
     '''    
-    url = environ['wsgi.url_scheme'] + '://'
+    url = [environ['wsgi.url_scheme'] + '://']
     if environ.get('HTTP_HOST'):
-        url += environ['HTTP_HOST']
+        url.append(environ['HTTP_HOST'])
     else:
-        url += environ['SERVER_NAME']
+        url.append(environ['SERVER_NAME'])
         if environ['wsgi.url_scheme'] == 'https':
             if environ['SERVER_PORT'] != '443':
-                url += ':' + environ['SERVER_PORT']
+                url.append(':' + environ['SERVER_PORT'])
         else:
             if environ['SERVER_PORT'] != '80':
-                url += ':' + environ['SERVER_PORT']
+                url.append(':' + environ['SERVER_PORT'])
     if include_path:
-        url += quote(environ.get('SCRIPT_NAME', ''))
-        url += quote(environ.get('PATH_INFO', ''))
+        url.append(request_path(environ))
     if include_query and environ.get('QUERY_STRING'):
-        url += '?' + environ['QUERY_STRING']
-    return url
+        url.append('?' + environ['QUERY_STRING'])
+    return ''.join(url)
+
+def request_path(environ):
+    '''Builds a path.
+
+    @param environ WSGI environ
+    '''
+    return quote(environ.get('SCRIPT_NAME', '')) + quote(environ.get('PATH_INFO', ''))
