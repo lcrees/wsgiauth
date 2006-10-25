@@ -30,13 +30,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-'''WSGI middleware for persistent authentication tokens in URL query
-components.
-'''
+'''Persistent authentication tokens in URL query components.'''
 
 import cgi
-from util import Redirect, request_uri
 from base import BaseAuth
+from util import Redirect
 
 __all__ = ['URLAuth', 'urlauth']
 
@@ -53,30 +51,31 @@ class URLAuth(BaseAuth):
 
     authtype = 'url'
 
+    def __init__(self, application, authfunc, **kw):
+        super(URLAuth, self).__init__(application, authfunc, **kw)
+        # Redirect method
+        self.redirect = kw.get('redirect', Redirect())
+
     def __call__(self, environ, start_response):
         # Check authentication
-        auth = self.authenticate(environ)
-        if not auth:
-            # Check authorization
-            authority = self.authorize(environ)
-            # Prompt for authorization if off
-            if not authority: return self.response(environ, start_response)
-            # Redirect to requested URL with auth token in query component
-            redirect = Redirect(self.generate(environ))
-            return redirect(environ, start_response)
+        if not self.authenticate(environ):
+            # Request credentials if no authority
+            if not self.authorize(environ):
+                return self.response(environ, start_response)
+            # Embed auth token
+            self.generate(environ)
+            # Redirect to requested URL with auth token in query string
+            return self.redirect(environ, start_response)
         return self.application(environ, start_response)
 
     def _authenticate(self, environ):
         '''Authenticates a token embedded in a query component.'''
         try:            
-            query = cgi.parse_qs(environ['QUERY_STRING'])        
+            query = cgi.parse_qs(environ['QUERY_STRING'])
             return self._authtoken(environ, query[self.name][0])
         except KeyError:
             return False
         
-    def _generate(self, environ):
-        '''Returns authentication token embedded in a query component.'''
-        token = self._gettoken(environ)
-        qstring = '='.join([self.name, token])
-        environ['QUERY_STRING'] = qstring
-        return request_uri(environ)
+    def _generate(self, env):
+        '''Embeds authentication token in query component.'''
+        env['QUERY_STRING'] = '='.join([self.name, self._gettoken(env)])
