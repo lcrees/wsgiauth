@@ -39,11 +39,10 @@ import base64
 import time
 from urllib import quote
 from datetime import datetime
-from util import request_uri
-from util import extract
+from util import extract, request_path, Response
     
 
-__all__ = ['BaseAuth', 'Scheme', 'HTTPAuth', 'AuthResponse']
+__all__ = ['BaseAuth', 'Scheme', 'HTTPAuth']
 
 # Default authorization response template
 TEMPLATE = '''<html>
@@ -85,23 +84,6 @@ _secret = getsecret()
 _tracker = dict()
 
 
-class AuthResponse(object):
-
-    def __init__(self, message=None, template=None):
-        # Authorization message
-        self.response = message or self._response        
-        # Authorization response template
-        self.template = template or TEMPLATE
-
-    def __call__(self, environ, start_response):
-        start_response('200 OK', [('Content-type', 'text/html')])
-        return self.response(environ)
-
-    def _response(self, environ): 
-        '''Returns an iterator containing a message body.'''
-        return [self.template % request_uri(environ, False)]
-
-
 class BaseAuth(object):
 
     '''Base class for authentication persisting.'''
@@ -124,7 +106,7 @@ class BaseAuth(object):
         # Token value encoder
         self.compute = kw.get('compute', self._compute)
         # Authorization response
-        self.response = kw.get('response', AuthResponse)
+        self.response = kw.get('response', Response(template=TEMPLATE))
         # Token name
         self.name = kw.get('name', self.fieldname)
         # Token tracking store
@@ -158,8 +140,7 @@ class BaseAuth(object):
 
     def _gettoken(self, environ):
         '''Generates authentication tokens.'''
-        user = environ['REMOTE_USER']
-        path = quote(environ['SCRIPT_NAME']) + quote(environ['PATH_INFO'])
+        user, path = environ['REMOTE_USER'], request_path(environ)
         agent = environ['HTTP_USER_AGENT']
         raddr, server = environ['REMOTE_ADDR'], environ['SERVER_NAME']
         # Onetime secret
@@ -231,7 +212,6 @@ class Scheme(object):
     'wrong credentials (e.g., bad password), or your browser\r\n' \
     'does not understand how to supply the credentials required.' 
     
-
     def __init__(self, realm, authfunc, **kw):
         self.realm, self.authfunc = realm, authfunc
         # WSGI app that sends a 401 response
@@ -271,8 +251,7 @@ class HTTPAuth(object):
         self.scheme = scheme.authtype
 
     def __call__(self, environ, start_response):
-        user = environ.get('REMOTE_USER')
-        if user is None:
+        if environ.get('REMOTE_USER') is None:
             result = self.authenticate(environ)
             if not isinstance(result, str):
                 return result(environ, start_response)
