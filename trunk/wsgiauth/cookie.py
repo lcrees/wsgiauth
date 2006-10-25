@@ -62,12 +62,10 @@ class Cookie(BaseAuth):
 
     def __call__(self, environ, start_response):
         # Authenticate cookie
-        auth = self.authenticate(environ)
-        if not auth:
-            # Check authorization
-            authority = self.authorize(environ)
+        if not self.authenticate(environ):
             # Request credentials if no authority
-            if not authority: return self.response(environ, start_response)
+            if not self.authorize(environ):
+                return self.response(environ, start_response)
             # Coroutine to set authetication cookie
             def cookie_response(status, headers, exc_info=None):
                 headers.append(('Set-Cookie', self.generate(environ)))
