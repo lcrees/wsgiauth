@@ -31,7 +31,7 @@ import sys
 import re
 from openid.consumer import consumer
 from openid.oidutil import appendArgs
-from util import request_uri, Redirect, NotFound
+from util import request_uri, Redirect, NotFound, Response
 
 TEMPLATE = '''<html>
   <head><title>OpenID Form</title></head>
@@ -92,9 +92,8 @@ class OpenID(object):
                 return self.verify(environ, start_response)
             elif path == '/process':
                 return self.process(environ, start_response)
-            else:
-                notfound = self.notfound(environ['openid.parsed_uri'])
-                return notfound(environ, start_response)
+            notfound = self.notfound(environ['openid.parsed_uri'])
+            return notfound(environ, start_response)
         else:
             if self.catch_401: return self.catch401(environ, start_response)
             return self.applcation(environ, start_response)
@@ -107,8 +106,7 @@ class OpenID(object):
                 was401 = True
                 def dummy_writer(v): pass
                 return dummy_writer
-            else:
-                return start_response(status, headers, exc_info)
+            return start_response(status, headers, exc_info)
         result = self.application(environ, catch_response)
         if was401:
             redir = self.redirect(request_uri(environ, False, False))
@@ -218,5 +216,6 @@ class OpenID(object):
     def build_url(self, environ, action, **query):
         '''Build a URL relative to the server base_url, with the given
         query parameters added.'''
-        base = urlparse.urljoin(environ['openid.base_url'], self.auth_prefix + '/' + action)
+        base = urlparse.urljoin(environ['openid.base_url'],
+                self.auth_prefix + '/' + action)
         return appendArgs(base, query)
