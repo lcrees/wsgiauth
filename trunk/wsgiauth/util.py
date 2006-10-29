@@ -53,8 +53,7 @@ class Response(object):
 
     def __call__(self, environ, start_response):
         start_response(self.status, self.headers)
-        message = self.message or request_uri(environ, False)
-        return self.response(message)
+        return self.response(self.message)
 
     def _response(self, message):
         '''Returns an iterator containing a message body.'''
@@ -71,7 +70,7 @@ class Redirect(Response):
     _status = '302 Found'
 
     def __call__(self, environ, start_response):
-        location = self.message or request_uri(environ)
+        location = self.message
         self.headers.append(('location', location))
         start_response(self.status, self.headers)
         return self.response((location, location, location))
@@ -86,9 +85,9 @@ class Forbidden(Response):
     _status = '403 Forbidden'
     _ctype = 'text/plain'
         
-    def __call__(self, environ, start_response):
+    def __call__(self, start_response):
         start_response(self.status, self.headers)
-        return self.response(self.message or request_path(environ))
+        return self.response(self.message)
 
 
 class NotFound(Forbidden):
@@ -97,7 +96,19 @@ class NotFound(Forbidden):
 
     _template = 'This server could not find resource %s.'
     _status = '404 Not Found'
-   
+
+
+def response(message, start_response):
+    return Response(message)({}, start_response)
+
+def redirect(message, start_response):
+    return Redirect(message)({}, start_response)
+
+def forbidden(message, start_response):
+    return Forbidden(message)({}, start_response)
+
+def notfound(message, start_response):
+    return NotFound(message)({}, start_response)
 
 def extract(environ, empty=False, err=False):
     '''Extracts strings in form data and returns a dict.
@@ -112,7 +123,7 @@ def extract(environ, empty=False, err=False):
         if len(value) == 1: formdata[key] = value[0]   
     return formdata
 
-def request_uri(environ, include_query=True, include_path=True):
+def requesturi(environ, include_query=True, include_path=True):
     '''Algorithm for rebuilding request URI (from PEP 333).
     
     @param environ WSGI environ
@@ -131,12 +142,12 @@ def request_uri(environ, include_query=True, include_path=True):
             if environ['SERVER_PORT'] != '80':
                 url.append(':' + environ['SERVER_PORT'])
     if include_path:
-        url.append(request_path(environ))
+        url.append(requestpath(environ))
     if include_query and environ.get('QUERY_STRING'):
         url.append('?' + environ['QUERY_STRING'])
     return ''.join(url)
 
-def request_path(environ):
+def requestpath(environ):
     '''Builds a path.
 
     @param environ WSGI environ

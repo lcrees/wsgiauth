@@ -35,7 +35,6 @@ def cas(authority, **kw):
     return decorator
 
 
-
 class CAS(object):
 
     '''Middleware to implement CAS 1.0 authentication
@@ -74,26 +73,25 @@ class CAS(object):
         self.forbidden = kw.get('forbidden', Forbidden)
     
     def __call__(self, environ, start_response):        
-        username = environ.get('REMOTE_USER')
-        if username is not None:
-            return self.application(environ, start_response)
-        qs = environ.get('QUERY_STRING', '').split('&')
-        if qs and qs[-1].startswith('ticket='):
-            # assume a response from the authority
-            ticket = qs.pop().split('=', 1)[1]
-            environ['QUERY_STRING'] = '&'.join(qs)
-            service = request_uri(environ)
-            args = urllib.urlencode({'service':service, 'ticket':ticket})
-            requrl = ''.join([self.authority, 'validate?', args])
-            result = urllib.urlopen(requrl).read().split('\n')
-            if 'yes' == result[0]:
-                environ['REMOTE_USER'] = result[1]
-                environ['AUTH_TYPE'] = 'cas'
-                return self.application(environ, start_response)
-            exce = self.forbidden
-        else:
-            service = request_uri(environ)
-            args = urllib.urlencode({'service':service})
-            location = ''.join([self.authority, 'login?', args])
-            exce = self.redirect(location)
-        return exce(environ, start_response)
+        if environ.get('REMOTE_USER') is None:            
+            qs = environ.get('QUERY_STRING', '').split('&')
+            if qs and qs[-1].startswith('ticket='):
+                # assume a response from the authority
+                ticket = qs.pop().split('=', 1)[1]
+                environ['QUERY_STRING'] = '&'.join(qs)
+                service = request_uri(environ)
+                args = urllib.urlencode({'service':service, 'ticket':ticket})
+                requrl = ''.join([self.authority, 'validate?', args])
+                result = urllib.urlopen(requrl).read().split('\n')
+                if 'yes' == result[0]:
+                    environ['REMOTE_USER'] = result[1]
+                    environ['AUTH_TYPE'] = 'cas'
+                    return self.application(environ, start_response)
+                exce = self.forbidden
+            else:
+                service = request_uri(environ)
+                args = urllib.urlencode({'service':service})
+                location = ''.join([self.authority, 'login?', args])
+                exce = self.redirect(location)
+            return exce(environ, start_response)
+        return self.application(environ, start_response)

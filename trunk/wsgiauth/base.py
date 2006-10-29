@@ -228,22 +228,7 @@ class HTTPAuth(object):
         '''
         @param application WSGI application.
         @param realm Identifier for authority requesting authorization.
-        @param authfunc
-            For basic authentication, this is a mandatory
-            user-defined function which takes a environ, username and
-            password for its first three arguments. It should return True
-            if the user is authenticated.
-
-            For digest authentication, this is a callback function which
-            performs the actual authentication; the signature of this
-            callback is:
-
-            authfunc(environ, realm, username) -> hashcode
-
-            The 'digest' module provides a 'digest_password' helper function which
-            can help construct the hashcode; it is recommended that the hashcode
-            is stored in a database, not the user's actual password (since you
-            only need the hashcode).
+        @param authfunc Mandatory user-defined function
         @param scheme HTTP authentication scheme            
         '''
         self.application = application

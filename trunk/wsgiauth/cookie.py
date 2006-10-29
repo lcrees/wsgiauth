@@ -69,7 +69,7 @@ class Cookie(BaseAuth):
             # Coroutine to set authetication cookie
             def cookie_response(status, headers, exc_info=None):
                 headers.append(('Set-Cookie', self.generate(environ)))
-                return start_response(status, headers, exc_info)   
+                return start_response(status, headers, exc_info)
             return self.application(environ, cookie_response)
         return self.application(environ, start_response)
         
