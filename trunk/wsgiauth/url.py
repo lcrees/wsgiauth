@@ -34,7 +34,7 @@
 
 import cgi
 from base import BaseAuth
-from util import Redirect
+from util import Redirect, requesturl
 
 __all__ = ['URLAuth', 'urlauth']
 
@@ -54,7 +54,7 @@ class URLAuth(BaseAuth):
     def __init__(self, application, authfunc, **kw):
         super(URLAuth, self).__init__(application, authfunc, **kw)
         # Redirect method
-        self.redirect = kw.get('redirect', Redirect())
+        self.redirect = kw.get('redirect', Redirect)
 
     def __call__(self, environ, start_response):
         # Check authentication
@@ -65,7 +65,8 @@ class URLAuth(BaseAuth):
             # Embed auth token
             self.generate(environ)
             # Redirect to requested URL with auth token in query string
-            return self.redirect(environ, start_response)
+            redirect = self.redirect(requesturl(environ))
+            return redirect(environ, start_response)
         return self.application(environ, start_response)
 
     def _authenticate(self, environ):

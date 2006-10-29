@@ -98,18 +98,6 @@ class NotFound(Forbidden):
     _status = '404 Not Found'
 
 
-def response(message, start_response):
-    return Response(message)({}, start_response)
-
-def redirect(message, start_response):
-    return Redirect(message)({}, start_response)
-
-def forbidden(message, start_response):
-    return Forbidden(message)({}, start_response)
-
-def notfound(message, start_response):
-    return NotFound(message)({}, start_response)
-
 def extract(environ, empty=False, err=False):
     '''Extracts strings in form data and returns a dict.
 
@@ -123,10 +111,9 @@ def extract(environ, empty=False, err=False):
         if len(value) == 1: formdata[key] = value[0]   
     return formdata
 
-def requesturi(environ, include_query=True, include_path=True):
-    '''Algorithm for rebuilding request URI (from PEP 333).
+def requesturl(environ, query=True, path=True):
+    '''Rebuilds a request URL (from PEP 333).
     
-    @param environ WSGI environ
     @param include_query Is QUERY_STRING included in URI (default: True)
     @param include_path Is path included in URI (default: True)
     '''    
@@ -141,15 +128,13 @@ def requesturi(environ, include_query=True, include_path=True):
         else:
             if environ['SERVER_PORT'] != '80':
                 url.append(':' + environ['SERVER_PORT'])
-    if include_path:
+    if path:
         url.append(requestpath(environ))
-    if include_query and environ.get('QUERY_STRING'):
+    if query and environ.get('QUERY_STRING'):
         url.append('?' + environ['QUERY_STRING'])
     return ''.join(url)
 
 def requestpath(environ):
-    '''Builds a path.
-
-    @param environ WSGI environ
-    '''
-    return quote(environ.get('SCRIPT_NAME', '')) + quote(environ.get('PATH_INFO', ''))
+    '''Builds a path.'''
+    return ''.join([quote(environ.get('SCRIPT_NAME', '')),
+        quote(environ.get('PATH_INFO', ''))])
