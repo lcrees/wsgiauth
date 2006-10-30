@@ -178,7 +178,7 @@ class OpenIDAuth(object):
         # Handle successful responses
         if info.status == consumer.SUCCESS:            
             # Handle i-names
-            redirecturl = self.tracker[self.getsid(environ)]['url']
+            redirecturl = self.tracker[self.getsid(environ)]['redirect']
             environ['openid.redirect'] = redirecturl
             if info.endpoint.canonicalID:                    
                 return info.endpoint.canonicalID
@@ -232,7 +232,7 @@ class OpenIDAuth(object):
         # If no session exists for this session ID, create one
         if session is None:
             session = self.tracker[sid] = {}
-            session['url'] = geturl(environ)
+            session['redirect'] = geturl(environ)
         session['id'] = sid        
         return session
 
@@ -245,6 +245,8 @@ class OpenIDAuth(object):
                 sid = sid_morsel.value
             else:
                 sid = None
+        else:
+            sid = None
         return sid
 
     def setsession(self, environ):
