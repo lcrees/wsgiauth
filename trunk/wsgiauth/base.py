@@ -28,7 +28,7 @@ import base64
 import time
 from urllib import quote
 from datetime import datetime
-from util import extract, getpath, Response    
+from wsgiauth.util import extract, getpath, Response    
 
 __all__ = ['BaseAuth', 'Scheme', 'HTTPAuth']
 

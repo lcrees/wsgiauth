@@ -24,7 +24,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-'''setup - setuptools based setup for wsgiform.'''
+'''setup - setuptools based setup for wsgiauth.'''
 
 import ez_setup
 ez_setup.use_setuptools()
@@ -36,15 +36,14 @@ except:
 
 setup(name='wsgiauth',
       version='0.1',
-      description='''WSGI middleware for parsing form data.''',
+      description='''WSGI authentication middleware.''',
       long_description='''WSGI middleware for parsing form data into dictionaries, individual environ
 entries, cgi.FieldStorage instances, or keyword arguments that can be passed to WSGI applications
 in the environ dictionary. Features hooks for form validation, HTML escaping, and data sterilization.''',
       author='L. C. Rees',
       author_email='lcrees@gmail.com',
-      license='MIT',
-      test_suite='test_wsgiform',
-      packages = ['wsgiform'],
+      license='BSD',
+      packages = ['wsgiauth'],
       zip_safe = True,
       keywords='WSGI dispatch middleware web HTTP decorators',
       classifiers=['Development Status :: 3 - Alpha',

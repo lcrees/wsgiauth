@@ -29,7 +29,7 @@ http://www.w3.org/Protocols/HTTP/1.0/draft-ietf-http-spec.html#BasicAA
 Do not use basic authentication unless you are using SSL or need to work
 with very out-dated clients, use HTTP digest authentication instead.'''
 
-from base import Scheme, HTTPAuth
+from wsgiauth.base import Scheme, HTTPAuth
 
 __all__ = ['basic']
 
