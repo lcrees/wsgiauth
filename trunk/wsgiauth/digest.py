@@ -30,7 +30,7 @@ http://www.w3.org/Protocols/HTTP/1.1/spec.html#DigestAA
 import md5
 import time
 import random
-from base import HTTPAuth, Scheme
+from wsgiauth.base import HTTPAuth, Scheme
 
 __all__ = ['digest', 'digest_password']
 

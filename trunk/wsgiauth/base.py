@@ -26,7 +26,6 @@ import sha
 import hmac
 import base64
 import time
-from urllib import quote
 from datetime import datetime
 from wsgiauth.util import extract, getpath, Response    
 
@@ -214,7 +213,10 @@ class Scheme(object):
         # WSGI app that sends a 401 response
         self.response = kw.get('response', self._response)
         # Message to return with 401 response
-        self.message = kw.get('message', self._msg)    
+        self.message = kw.get('message', self._msg)
+
+    def _response(self, environ, start_response):
+        raise NotImplementedError()        
     
 
 class HTTPAuth(object):
