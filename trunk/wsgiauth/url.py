@@ -55,11 +55,7 @@ class URLAuth(BaseAuth):
         
     def generate(self, env):
         '''Embeds authentication token in query component.'''
-        token = '='.join([self.name, self._gettoken(env)])
-        if env.get('QUERY_STRING') == '':
-            env['QUERY_STRING'] = token
-        else:
-            env['QUERY_STRING'] = '&'.join([env['QUERY_STRING'], token])
+        env['QUERY_STRING'] = '='.join([self.name, self._gettoken(env)])
 
     def initial(self, environ, start_response):
         # Embed auth token

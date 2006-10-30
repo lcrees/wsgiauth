@@ -35,7 +35,7 @@ import urlparse
 import sys
 from Cookie import SimpleCookie
 try:
-    import openid as oid
+    import openid
 except ImportError:
     print >> sys.stderr, '''Failed to import the OpenID library.
 In order to use this example, you must either install the library
@@ -46,10 +46,10 @@ For more information, see the README in the root of the library
 distribution or http://www.openidenabled.com/
 '''
     sys.exit(1)
-from oid.store import filestore
-from oid.consumer import consumer
-from oid.oidutil import appendArgs
-from oid.cryptutil import randomString
+from openid.store import filestore
+from openid.consumer import consumer
+from openid.oidutil import appendArgs
+from openid.cryptutil import randomString
 from yadis.discover import DiscoveryFailure
 from urljr.fetchers import HTTPFetchingError
 from wsgiauth.util import geturl, getpath, Redirect, Response

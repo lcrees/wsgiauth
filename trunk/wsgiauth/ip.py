@@ -40,7 +40,7 @@ class IP(object):
 
     def __init__(self, app, authfunc, **kw):
         self.app, self.authfunc = app, authfunc
-        self.response = kw.get('response', Forbidden)
+        self.response = kw.get('response', Forbidden())
 
     def __call__(self, environ, start_response):
         ipaddr = environ.get('REMOTE_ADDR')

@@ -79,18 +79,9 @@ class Forbidden(Response):
     _status = '403 Forbidden'
     _ctype = 'text/plain'
         
-    def __call__(self, start_response):
+    def __call__(self, environ, start_response):
         start_response(self.status, self.headers)
         return self.response(self.message or geturl(environ))
-
-
-class NotFound(Forbidden):
-
-    '''WSGI application for 404 errors.'''
-
-    _template = 'This server could not find resource %s.'
-    _status = '404 Not Found'
-
 
 def extract(environ, empty=False, err=False):
     '''Extracts strings in form data and returns a dict.
