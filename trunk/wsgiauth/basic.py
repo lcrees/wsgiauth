@@ -34,7 +34,7 @@ from base import Scheme, HTTPAuth
 __all__ = ['basic']
 
 def basic(realm, authfunc, **kw):
-    '''Decorator for HTTP basic authentication middleware.'''
+    '''Decorator for HTTP basic authentication.'''
     def decorator(application):
         return HTTPAuth(application, realm, authfunc, BasicAuth, **kw)
     return decorator
@@ -48,19 +48,23 @@ class BasicAuth(Scheme):
 
     def _response(self, environ, start_response):
         '''Default HTTP basic authentication response.'''
-        start_response('401 Unauthorized', [('content-type', 'text/plain'),
+        # Send 401 response + realm
+        start_response('401 Unauthorized',
+            [('content-type', 'text/plain'),
             ('WWW-Authenticate', 'Basic realm="%s"' % self.realm)])
         return [self.message]
 
     def __call__(self, environ):
-        '''This function takes a WSGI environment and authenticates
-        the request, returning an authenticated user or error.
-        '''
+        # Check authorization
         authorization = environ.get('HTTP_AUTHORIZATION')
-        if authorization is None: return self.response   
+        # Request credentials if no authorization
+        if authorization is None: return self.response
+        # Verify scheme
         authmeth, auth = authorization.split(' ', 1)
         if authmeth.lower() != 'basic': return self.response
+        # Get username, password
         auth = auth.strip().decode('base64')
         username, password = auth.split(':', 1)
+        # Authorize user
         if self.authfunc(environ, username, password): return username
         return self.response
