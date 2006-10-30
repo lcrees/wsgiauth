@@ -58,22 +58,9 @@ class Cookie(BaseAuth):
         # Cookie age
         self.age = kw.get('age', 7200)
         # Cookie path, comment
-        self.path, self.comment = kw.get('path', '/'), kw.get('comment')
-
-    def __call__(self, environ, start_response):
-        # Authenticate cookie
-        if not self.authenticate(environ):
-            # Request credentials if no authority
-            if not self.authorize(environ):
-                return self.response(environ, start_response)
-            # Coroutine to set authetication cookie
-            def cookie_response(status, headers, exc_info=None):
-                headers.append(('Set-Cookie', self.generate(environ)))
-                return start_response(status, headers, exc_info)
-            return self.application(environ, cookie_response)
-        return self.application(environ, start_response)
+        self.path, self.comment = kw.get('path', '/'), kw.get('comment')    
         
-    def _authenticate(self, environ):
+    def authenticate(self, environ):
         '''Authenticates a token embedded in a cookie.'''
         try:
             cookies = SimpleCookie(environ['HTTP_COOKIE'])
@@ -87,7 +74,7 @@ class Cookie(BaseAuth):
         except KeyError:
             return False
 
-    def _generate(self, environ):
+    def generate(self, environ):
         '''Returns an authentication token embedded in a cookie.'''
         scookie = SimpleCookie()
         scookie[self.name] = self._gettoken(environ)
@@ -100,3 +87,10 @@ class Cookie(BaseAuth):
         if environ['wsgi.url_scheme'] == 'https':
             scookie[self.name]['secure'] = ''
         return scookie[self.name].OutputString()
+
+    def initial(self, environ, start_response):
+        # Coroutine to set authentication cookie
+        def cookie_response(status, headers, exc_info=None):
+            headers.append(('Set-Cookie', self.generate(environ)))
+            return start_response(status, headers, exc_info)
+        return self.application(environ, cookie_response)

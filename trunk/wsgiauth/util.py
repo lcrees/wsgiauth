@@ -46,14 +46,14 @@ class Response(object):
         # Authorization response template
         self.template = kw.get('template', self._template)
         # Header list
-        self.headers = list()
+        self.headers = kw.get('headers', list())
         # Content type
         ctype = kw.get('content', self._ctype)
         self.headers.append(('Content-type', ctype))
 
     def __call__(self, environ, start_response):
         start_response(self.status, self.headers)
-        return self.response(self.message)
+        return self.response(self.message or geturl(environ))
 
     def _response(self, message):
         '''Returns an iterator containing a message body.'''
@@ -108,10 +108,10 @@ def extract(environ, empty=False, err=False):
     formdata = cgi.parse(environ['wsgi.input'], environ, empty, err)    
     # Remove single entries from lists
     for key, value in formdata.iteritems():
-        if len(value) == 1: formdata[key] = value[0]   
+        if len(value) == 1: formdata[key] = value[0]
     return formdata
 
-def requesturl(environ, query=True, path=True):
+def geturl(environ, query=True, path=True):
     '''Rebuilds a request URL (from PEP 333).
     
     @param include_query Is QUERY_STRING included in URI (default: True)
@@ -129,12 +129,12 @@ def requesturl(environ, query=True, path=True):
             if environ['SERVER_PORT'] != '80':
                 url.append(':' + environ['SERVER_PORT'])
     if path:
-        url.append(requestpath(environ))
+        url.append(getpath(environ))
     if query and environ.get('QUERY_STRING'):
         url.append('?' + environ['QUERY_STRING'])
     return ''.join(url)
 
-def requestpath(environ):
+def getpath(environ):
     '''Builds a path.'''
     return ''.join([quote(environ.get('SCRIPT_NAME', '')),
         quote(environ.get('PATH_INFO', ''))])

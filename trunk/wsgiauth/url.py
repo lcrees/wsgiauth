@@ -34,7 +34,7 @@
 
 import cgi
 from base import BaseAuth
-from util import Redirect, requesturl
+from util import Redirect, geturl
 
 __all__ = ['URLAuth', 'urlauth']
 
@@ -56,20 +56,7 @@ class URLAuth(BaseAuth):
         # Redirect method
         self.redirect = kw.get('redirect', Redirect)
 
-    def __call__(self, environ, start_response):
-        # Check authentication
-        if not self.authenticate(environ):
-            # Request credentials if no authority
-            if not self.authorize(environ):
-                return self.response(environ, start_response)
-            # Embed auth token
-            self.generate(environ)
-            # Redirect to requested URL with auth token in query string
-            redirect = self.redirect(requesturl(environ))
-            return redirect(environ, start_response)
-        return self.application(environ, start_response)
-
-    def _authenticate(self, environ):
+    def authenticate(self, environ):
         '''Authenticates a token embedded in a query component.'''
         try:            
             query = cgi.parse_qs(environ['QUERY_STRING'])
@@ -77,6 +64,17 @@ class URLAuth(BaseAuth):
         except KeyError:
             return False
         
-    def _generate(self, env):
+    def generate(self, env):
         '''Embeds authentication token in query component.'''
-        env['QUERY_STRING'] = '='.join([self.name, self._gettoken(env)])
+        token = '='.join([self.name, self._gettoken(env)])
+        if env.get('QUERY_STRING') == '':
+            env['QUERY_STRING'] = token
+        else:
+            env['QUERY_STRING'] = '&'.join([env['QUERY_STRING'], token])
+
+    def initial(self, environ, start_response):
+        # Embed auth token
+        self.generate(environ)
+        # Redirect to requested URL with auth token in query string
+        redirect = self.redirect(geturl(environ))
+        return redirect(environ, start_response)     

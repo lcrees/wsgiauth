@@ -39,7 +39,7 @@ import base64
 import time
 from urllib import quote
 from datetime import datetime
-from util import extract, request_path, Response
+from util import extract, getpath, Response
     
 
 __all__ = ['BaseAuth', 'Scheme', 'HTTPAuth']
@@ -97,14 +97,6 @@ class BaseAuth(object):
         self.authfunc = authfunc
         # Secret signing key
         self._secret = kw.get('secret', _secret)
-        # Authentication function
-        self.authenticate = kw.get('authenticate', self._authenticate)
-        # Authorization wrapper method
-        self.authorize = kw.get('authorize', self._authorize)
-        # Token generator
-        self.generate = kw.get('generate', self._generate)
-        # Token value encoder
-        self.compute = kw.get('compute', self._compute)
         # Authorization response
         self.response = kw.get('response', Response(template=TEMPLATE))
         # Token name
@@ -116,44 +108,38 @@ class BaseAuth(object):
         # Authentication session timeout
         self.timeout = kw.get('timeout', 3600)
         # Form variable for username
-        self.namevar = kw.get('namevar', 'username')    
+        self.namevar = kw.get('namevar', 'username')       
+
+    def __call__(self, environ, start_response):
+        if not self.authenticate(environ):
+            result = self.authorize(environ)
+            # Request credentials if no authority
+            if hasattr(result, '__call__'):
+                return result(environ, start_response)
+            # Set environ
+            environ['REMOTE_USER'] = result
+            environ['AUTH_TYPE'] = self.authtype
+            environ['REQUEST_METHOD'] = 'GET'
+            environ['CONTENT_LENGTH'] = ''
+            environ['CONTENT_TYPE'] = ''
+            # Send initial response
+            return self.initial(environ, start_response)            
+        return self.application(environ, start_response)        
         
-    def _authorize(self, environ):
+    def authorize(self, environ):
         '''Checks authorization credentials for a request.'''
         # Provide persistence for already authenticated requests
         if environ.get('REMOTE_USER') is not None:
-            return True
+            return environ.get('REMOTE_USER')
         # Complete authorization process
         elif environ['REQUEST_METHOD'] == 'POST':
             # Get user credentials
             userdata = extract(environ)
             # Check authorization of user credentials
-            if self.authfunc(userdata):
-                # Set environ entries
-                environ['REMOTE_USER'] = userdata[self.namevar]                
-                environ['REQUEST_METHOD'] = 'GET'
-                environ['CONTENT_LENGTH'] = ''
-                environ['CONTENT_TYPE'] = ''
-                return True
-            return False
-        return False            
-
-    def _gettoken(self, environ):
-        '''Generates authentication tokens.'''
-        user, path = environ['REMOTE_USER'], request_path(environ)
-        agent = environ['HTTP_USER_AGENT']
-        raddr, server = environ['REMOTE_ADDR'], environ['SERVER_NAME']
-        # Onetime secret
-        nonce = getsecret()
-        # Compute authentication token
-        authtoken = self.compute(user, raddr, server, path, agent, nonce)
-        # Compute token timeout
-        timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
-        # Generate persistent token
-        token = base64.urlsafe_b64encode(authtoken + timeout.encode('hex'))
-        # Store onetime token info for future authentication
-        self.tracker[token] =  {'user':user, 'path':path, 'nonce':nonce}
-        return token
+            if self.authfunc(userdata):               
+                return userdata[self.namevar]
+            return self.response
+        return self.response
 
     def _authtoken(self, environ, token):
         '''Authenticates authentication tokens.'''
@@ -177,9 +163,9 @@ class BaseAuth(object):
             # Set user and authentication type
             environ['REMOTE_USER'] = user
             environ['AUTH_TYPE'] = self.authtype
-            return True        
+            return True
 
-    def _compute(self, user, raddr, server, path, agent, nonce):
+    def compute(self, user, raddr, server, path, agent, nonce):
         '''Computes a token.'''
        
         # Verify minimum path and user auth
@@ -192,13 +178,34 @@ class BaseAuth(object):
         elif self.authlevel == 1:
             key = self._secret.join([raddr, user, server, nonce, agent, path])
         # Return HMAC signed token
-        return hmac.new(self._secret, key, sha).hexdigest()
+        return hmac.new(self._secret, key, sha).hexdigest()        
 
-    def _authenticate(self, environ):
+    def _gettoken(self, environ):
+        '''Generates authentication tokens.'''
+        user, path = environ['REMOTE_USER'], getpath(environ)
+        agent = environ['HTTP_USER_AGENT']
+        raddr, server = environ['REMOTE_ADDR'], environ['SERVER_NAME']
+        # Onetime secret
+        nonce = getsecret()
+        # Compute authentication token
+        authtoken = self.compute(user, raddr, server, path, agent, nonce)
+        # Compute token timeout
+        timeout = datetime.fromtimestamp(time.time() + self.timeout).ctime()
+        # Generate persistent token
+        token = base64.urlsafe_b64encode(authtoken + timeout.encode('hex'))
+        # Store onetime token info for future authentication
+        self.tracker[token] =  {'user':user, 'path':path, 'nonce':nonce}
+        return token
+
+    def authenticate(self, environ):
         '''"Interface" for subclasses.'''
         raise NotImplementedError()
 
-    def _generate(self, environ):
+    def generate(self, environ):
+        '''"Interface" for subclasses.'''
+        raise NotImplementedError()
+
+    def initial(self, environ, start_response):
         '''"Interface" for subclasses.'''
         raise NotImplementedError()
 

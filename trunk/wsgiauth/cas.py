@@ -6,7 +6,7 @@
 '''CAS 1.0 Authentication'''
 
 import urllib
-from util import Redirect, Forbidden, requesturl
+from util import Redirect, Forbidden, geturl
 
 __all__ = ['CAS', 'cas']
 
@@ -36,7 +36,7 @@ class CAS(object):
                 # assume a response from the authority
                 ticket = qs.pop().split('=', 1)[1]
                 environ['QUERY_STRING'] = '&'.join(qs)
-                service = requesturl(environ)
+                service = geturl(environ)
                 args = urllib.urlencode({'service':service, 'ticket':ticket})
                 requrl = ''.join([self.authority, 'validate?', args])
                 result = urllib.urlopen(requrl).read().split('\n')
@@ -46,7 +46,7 @@ class CAS(object):
                     return self.application(environ, start_response)
                 exce = self.forbidden
             else:
-                service = requesturl(environ)
+                service = geturl(environ)
                 args = urllib.urlencode({'service':service})
                 location = ''.join([self.authority, 'login?', args])
                 exce = self.redirect(location)
