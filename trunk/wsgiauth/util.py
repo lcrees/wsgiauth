@@ -74,7 +74,7 @@ class Forbidden(Response):
     
     '''WSGI application for 403 responses.'''
 
-    _template = 'This server could not verify that you are authorized to' \
+    _template = 'This server could not verify that you are authorized to ' \
              'access resource %s from your current location.'
     _status = '403 Forbidden'
     _ctype = 'text/plain'
