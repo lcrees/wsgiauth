@@ -84,12 +84,13 @@ class Cookie(BaseAuth):
             scookie[self.name]['domain'] = self.domain
         if self.comment is not None:
             scookie[self.name]['comment'] = self.comment
+        # Mark cookie as secure if using SSL
         if environ['wsgi.url_scheme'] == 'https':
             scookie[self.name]['secure'] = ''
         return scookie[self.name].OutputString()
 
     def initial(self, environ, start_response):
-        # Coroutine to set authentication cookie
+        '''Initial response to a request.'''
         def cookie_response(status, headers, exc_info=None):
             headers.append(('Set-Cookie', self.generate(environ)))
             return start_response(status, headers, exc_info)
