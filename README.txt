@@ -1,0 +1,3 @@
+WSGI authentication middleware that supports HTTP basic
+      and digest authentication, IP authentication, and form-based or OpenID
+      authentication using signed cookies or URL query parameters.
